@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+build/
+logs/
+config.json
+.DS_Store
+
+# build artifacts (rebuilt via pyinstaller)
+*.exe
+dist/
+*.app/
+icon.iconset/
+iconutil_debug.txt
+
+# runtime cache (regenerated on demand)
+/cache/

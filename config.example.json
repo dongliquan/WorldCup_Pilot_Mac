@@ -1,0 +1,9 @@
+{
+  "groq_api_key": "<console.groq.com key (free) — ⚡ Groq pick, runs Llama 3.3>",
+  "openai_api_key": "<OpenAI key, or a GitHub token (ghp_…) for free GitHub Models — 💬 ChatGPT pick (GPT-4o)>",
+  "competition": "WC",
+  "season": 2026,
+  "cache_ttl_seconds": 60,
+  "venue_timezone": "America/New_York",
+  "use_mock_when_unavailable": false
+}

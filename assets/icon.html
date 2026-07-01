@@ -1,0 +1,85 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"/>
+<style>html,body{margin:0;padding:0;background:transparent}</style></head>
+<body>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <!-- stadium night sky -->
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#0b1c3a"/>
+      <stop offset=".55" stop-color="#08122a"/>
+      <stop offset="1"   stop-color="#050a18"/>
+    </linearGradient>
+    <!-- pitch green -->
+    <linearGradient id="grass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1f9d4d"/>
+      <stop offset="1" stop-color="#0c7a37"/>
+    </linearGradient>
+    <!-- rainbow arc -->
+    <linearGradient id="rainbow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0.00" stop-color="#ff3b30"/>
+      <stop offset="0.18" stop-color="#ff9500"/>
+      <stop offset="0.36" stop-color="#ffcc00"/>
+      <stop offset="0.54" stop-color="#34c759"/>
+      <stop offset="0.70" stop-color="#00c7be"/>
+      <stop offset="0.85" stop-color="#0a84ff"/>
+      <stop offset="1.00" stop-color="#bf5af2"/>
+    </linearGradient>
+    <radialGradient id="flareL" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#bfe3ff" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#bfe3ff" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="ballSh" cx="0.5" cy="0.42" r="0.6">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".7" stop-color="#eef2f6"/>
+      <stop offset="1" stop-color="#c4ccd6"/>
+    </radialGradient>
+    <clipPath id="squircle">
+      <rect x="40" y="40" width="944" height="944" rx="216" ry="216"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#squircle)">
+    <!-- sky -->
+    <rect x="40" y="40" width="944" height="944" fill="url(#sky)"/>
+    <!-- stadium light flares -->
+    <circle cx="250" cy="250" r="220" fill="url(#flareL)" opacity=".55"/>
+    <circle cx="780" cy="230" r="200" fill="url(#flareL)" opacity=".5"/>
+
+    <!-- pitch (smaller, lower third) -->
+    <path d="M 360 720 L 664 720 L 900 1010 L 124 1010 Z" fill="url(#grass)"/>
+    <!-- mowing stripes -->
+    <g opacity=".10" fill="#ffffff">
+      <path d="M 360 720 L 436 720 L 318 1010 L 124 1010 Z"/>
+      <path d="M 512 720 L 588 720 L 706 1010 L 512 1010 Z"/>
+    </g>
+    <!-- field markings -->
+    <g fill="none" stroke="#ffffff" stroke-width="6" opacity=".8">
+      <path d="M 360 720 L 664 720 L 900 1010 L 124 1010 Z"/>
+      <line x1="270" y1="836" x2="754" y2="836"/>
+      <ellipse cx="512" cy="836" rx="104" ry="26"/>
+    </g>
+    <circle cx="512" cy="836" r="8" fill="#ffffff" opacity=".8"/>
+
+    <!-- soccer ball (enlarged) -->
+    <g transform="translate(512 470) scale(1.45)">
+      <ellipse cx="0" cy="172" rx="150" ry="30" fill="#000" opacity=".28"/>
+      <circle r="172" fill="url(#ballSh)" stroke="#9aa6b2" stroke-width="3"/>
+      <g fill="#15233a">
+        <polygon points="0,-58 56,-18 34,48 -34,48 -56,-18"/>
+        <polygon points="0,-172 44,-150 30,-92 -30,-92 -44,-150"/>
+        <polygon points="172,-30 150,28 92,18 88,-44 140,-66"/>
+        <polygon points="-172,-30 -140,-66 -88,-44 -92,18 -150,28"/>
+        <polygon points="118,150 60,150 64,86 122,92"/>
+        <polygon points="-118,150 -122,92 -64,86 -60,150"/>
+      </g>
+      <g stroke="#15233a" stroke-width="5" fill="none" opacity=".9">
+        <line x1="0" y1="-58" x2="0" y2="-92"/>
+        <line x1="56" y1="-18" x2="88" y2="-44"/>
+        <line x1="34" y1="48" x2="64" y2="86"/>
+        <line x1="-34" y1="48" x2="-64" y2="86"/>
+        <line x1="-56" y1="-18" x2="-92" y2="-44"/>
+      </g>
+    </g>
+  </g>
+</svg>
+</body></html>

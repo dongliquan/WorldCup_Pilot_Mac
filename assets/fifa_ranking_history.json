@@ -1,0 +1,14 @@
+{
+  "_note": "FIFA ranking as of each edition (pre-tournament). FIFA ranking started in 1993 — older editions have none. Approximate, editable. Add editions as {year: {country: rank}}.",
+  "byYear": {
+    "2022": {
+      "Brazil": 1, "Belgium": 2, "Argentina": 3, "France": 4, "England": 5,
+      "Spain": 7, "Netherlands": 8, "Portugal": 9, "Denmark": 10, "Germany": 11,
+      "Croatia": 12, "Mexico": 13, "Uruguay": 14, "Switzerland": 15, "United States": 16,
+      "Senegal": 18, "Wales": 19, "Iran": 20, "Serbia": 21, "Morocco": 22,
+      "Japan": 24, "Poland": 26, "South Korea": 28, "Tunisia": 30, "Costa Rica": 31,
+      "Australia": 38, "Canada": 41, "Cameroon": 43, "Ecuador": 44, "Qatar": 50,
+      "Saudi Arabia": 51, "Ghana": 61
+    }
+  }
+}

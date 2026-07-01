@@ -1,0 +1,28 @@
+{
+  "_note": "World Cup editions, newest first. iso=flagcdn code. mvp=Golden Ball (1982+). topScorer=Golden Boot (name, goals, iso). Editable.",
+  "editions": [
+    {"year": 2026, "host": "미국 · 캐나다 · 멕시코", "hostEn": "USA · Canada · Mexico", "current": true},
+    {"year": 2022, "host": "카타르", "hostEn": "Qatar", "champEn": "Argentina", "champIso": "ar", "ruEn": "France", "ruIso": "fr", "score": "3-3 (PK 4-2)", "mvp": "Lionel Messi", "mvpCountry": "Argentina", "mvpIso": "ar", "topScorer": {"name": "Kylian Mbappé", "goals": 8, "iso": "fr"}},
+    {"year": 2018, "host": "러시아", "hostEn": "Russia", "champEn": "France", "champIso": "fr", "ruEn": "Croatia", "ruIso": "hr", "score": "4-2", "mvp": "Luka Modrić", "mvpCountry": "Croatia", "mvpIso": "hr", "topScorer": {"name": "Harry Kane", "goals": 6, "iso": "gb-eng"}},
+    {"year": 2014, "host": "브라질", "hostEn": "Brazil", "champEn": "Germany", "champIso": "de", "ruEn": "Argentina", "ruIso": "ar", "score": "1-0 (연장)", "mvp": "Lionel Messi", "mvpCountry": "Argentina", "mvpIso": "ar", "topScorer": {"name": "James Rodríguez", "goals": 6, "iso": "co"}},
+    {"year": 2010, "host": "남아프리카공화국", "hostEn": "South Africa", "champEn": "Spain", "champIso": "es", "ruEn": "Netherlands", "ruIso": "nl", "score": "1-0 (연장)", "mvp": "Diego Forlán", "mvpCountry": "Uruguay", "mvpIso": "uy", "topScorer": {"name": "Thomas Müller", "goals": 5, "iso": "de"}},
+    {"year": 2006, "host": "독일", "hostEn": "Germany", "champEn": "Italy", "champIso": "it", "ruEn": "France", "ruIso": "fr", "score": "1-1 (PK 5-3)", "mvp": "Zinedine Zidane", "mvpCountry": "France", "mvpIso": "fr", "topScorer": {"name": "Miroslav Klose", "goals": 5, "iso": "de"}},
+    {"year": 2002, "host": "대한민국 · 일본", "hostEn": "Korea · Japan", "champEn": "Brazil", "champIso": "br", "ruEn": "Germany", "ruIso": "de", "score": "2-0", "mvp": "Oliver Kahn", "mvpCountry": "Germany", "mvpIso": "de", "topScorer": {"name": "Ronaldo", "goals": 8, "iso": "br"}},
+    {"year": 1998, "host": "프랑스", "hostEn": "France", "champEn": "France", "champIso": "fr", "ruEn": "Brazil", "ruIso": "br", "score": "3-0", "mvp": "Ronaldo", "mvpCountry": "Brazil", "mvpIso": "br", "topScorer": {"name": "Davor Šuker", "goals": 6, "iso": "hr"}},
+    {"year": 1994, "host": "미국", "hostEn": "USA", "champEn": "Brazil", "champIso": "br", "ruEn": "Italy", "ruIso": "it", "score": "0-0 (PK 3-2)", "mvp": "Romário", "mvpCountry": "Brazil", "mvpIso": "br", "topScorer": {"name": "Stoichkov · Salenko", "goals": 6, "iso": ""}},
+    {"year": 1990, "host": "이탈리아", "hostEn": "Italy", "champEn": "West Germany", "champIso": "de", "ruEn": "Argentina", "ruIso": "ar", "score": "1-0", "mvp": "Salvatore Schillaci", "mvpCountry": "Italy", "mvpIso": "it", "topScorer": {"name": "Salvatore Schillaci", "goals": 6, "iso": "it"}},
+    {"year": 1986, "host": "멕시코", "hostEn": "Mexico", "champEn": "Argentina", "champIso": "ar", "ruEn": "West Germany", "ruIso": "de", "score": "3-2", "mvp": "Diego Maradona", "mvpCountry": "Argentina", "mvpIso": "ar", "topScorer": {"name": "Gary Lineker", "goals": 6, "iso": "gb-eng"}},
+    {"year": 1982, "host": "스페인", "hostEn": "Spain", "champEn": "Italy", "champIso": "it", "ruEn": "West Germany", "ruIso": "de", "score": "3-1", "mvp": "Paolo Rossi", "mvpCountry": "Italy", "mvpIso": "it", "topScorer": {"name": "Paolo Rossi", "goals": 6, "iso": "it"}},
+    {"year": 1978, "host": "아르헨티나", "hostEn": "Argentina", "champEn": "Argentina", "champIso": "ar", "ruEn": "Netherlands", "ruIso": "nl", "score": "3-1 (연장)", "topScorer": {"name": "Mario Kempes", "goals": 6, "iso": "ar"}},
+    {"year": 1974, "host": "서독", "hostEn": "West Germany", "champEn": "West Germany", "champIso": "de", "ruEn": "Netherlands", "ruIso": "nl", "score": "2-1", "topScorer": {"name": "Grzegorz Lato", "goals": 7, "iso": "pl"}},
+    {"year": 1970, "host": "멕시코", "hostEn": "Mexico", "champEn": "Brazil", "champIso": "br", "ruEn": "Italy", "ruIso": "it", "score": "4-1", "topScorer": {"name": "Gerd Müller", "goals": 10, "iso": "de"}},
+    {"year": 1966, "host": "잉글랜드", "hostEn": "England", "champEn": "England", "champIso": "gb-eng", "ruEn": "West Germany", "ruIso": "de", "score": "4-2 (연장)", "topScorer": {"name": "Eusébio", "goals": 9, "iso": "pt"}},
+    {"year": 1962, "host": "칠레", "hostEn": "Chile", "champEn": "Brazil", "champIso": "br", "ruEn": "Czechoslovakia", "ruIso": "cz", "score": "3-1", "topScorer": {"name": "공동 6명", "goals": 4, "iso": ""}},
+    {"year": 1958, "host": "스웨덴", "hostEn": "Sweden", "champEn": "Brazil", "champIso": "br", "ruEn": "Sweden", "ruIso": "se", "score": "5-2", "topScorer": {"name": "Just Fontaine", "goals": 13, "iso": "fr"}},
+    {"year": 1954, "host": "스위스", "hostEn": "Switzerland", "champEn": "West Germany", "champIso": "de", "ruEn": "Hungary", "ruIso": "hu", "score": "3-2", "topScorer": {"name": "Sándor Kocsis", "goals": 11, "iso": "hu"}},
+    {"year": 1950, "host": "브라질", "hostEn": "Brazil", "champEn": "Uruguay", "champIso": "uy", "ruEn": "Brazil", "ruIso": "br", "score": "2-1", "topScorer": {"name": "Ademir", "goals": 8, "iso": "br"}},
+    {"year": 1938, "host": "프랑스", "hostEn": "France", "champEn": "Italy", "champIso": "it", "ruEn": "Hungary", "ruIso": "hu", "score": "4-2", "topScorer": {"name": "Leônidas", "goals": 7, "iso": "br"}},
+    {"year": 1934, "host": "이탈리아", "hostEn": "Italy", "champEn": "Italy", "champIso": "it", "ruEn": "Czechoslovakia", "ruIso": "cz", "score": "2-1 (연장)", "topScorer": {"name": "Oldřich Nejedlý", "goals": 5, "iso": "cz"}},
+    {"year": 1930, "host": "우루과이", "hostEn": "Uruguay", "champEn": "Uruguay", "champIso": "uy", "ruEn": "Argentina", "ruIso": "ar", "score": "4-2", "topScorer": {"name": "Guillermo Stábile", "goals": 8, "iso": "ar"}}
+  ]
+}
