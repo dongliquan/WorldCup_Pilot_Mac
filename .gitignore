@@ -7,10 +7,17 @@ config.json
 
 # build artifacts (rebuilt via pyinstaller)
 *.exe
-dist/
-*.app/
+dist/*.app/
+dist/World Cup Pilot/
 icon.iconset/
 iconutil_debug.txt
 
-# runtime cache (regenerated on demand)
+# runtime cache: commit only the AI picks + model picks + derived race data
+# (AI picks can't be re-fetched without keys). Ignore everything else in the
+# cache — the big auto-refetchable blobs (img/, espn-sum-*), match/roster/etc.
 /cache/
+dist/cache/*
+!dist/cache/aipick-*.json
+!dist/cache/modelpick-*.json
+!dist/cache/advtrend.json
+!dist/cache/advodds.json
