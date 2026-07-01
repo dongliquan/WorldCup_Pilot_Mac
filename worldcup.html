@@ -1310,8 +1310,11 @@ function renderDateStrip() {
       <span class="dow">${dow}</span><span class="day">${dt.getDate()}</span>
       <span class="mon">${mon}</span><span class="cnt">${tr("matches",{n:counts[d]||0})}</span></div>`;
   }).join("") || `<div class="empty" style="padding:20px">${tr("noSchedule")}</div>`;
-  const active = wrap.querySelector(".chip.active");
-  if (active) active.scrollIntoView({inline:"center", block:"nearest"});
+  // center today in the date strip (fall back to the selected chip for past editions)
+  requestAnimationFrame(() => {
+    const target = wrap.querySelector(".chip.today") || wrap.querySelector(".chip.active");
+    if (target) wrap.scrollLeft = target.offsetLeft - (wrap.clientWidth - target.offsetWidth) / 2;
+  });
 }
 function selectDate(d){ state.selectedDate = d; renderDateStrip(); render(); }
 function scrollDates(dir){ document.getElementById("dateScroll").scrollBy({left: dir*260, behavior:"smooth"}); }
