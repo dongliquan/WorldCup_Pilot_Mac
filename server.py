@@ -2416,8 +2416,15 @@ def compute_accuracy():
         if finished:
             nfin += 1
             ah, aa = sc["home"], sc["away"]
-            ao = "home" if ah > aa else "away" if aa > ah else "draw"
-            row = {"home": hn, "away": an, "actual": f"{ah}-{aa}", "ao": ao}
+            pens = sc.get("pens") or {}
+            ph, pa = pens.get("home"), pens.get("away")
+            if ah == aa and ph is not None and pa is not None:
+                ao = "home" if ph > pa else "away"     # knockout level after ET → shootout winner advanced
+                actual = f"{ah}-{aa} (PK {ph}-{pa})"
+            else:
+                ao = "home" if ah > aa else "away" if aa > ah else "draw"
+                actual = f"{ah}-{aa}"
+            row = {"home": hn, "away": an, "actual": actual, "ao": ao}
             mp = _model_pick_cached(mid)
             if mp:
                 ok = pick_outcome(mp) == ao
