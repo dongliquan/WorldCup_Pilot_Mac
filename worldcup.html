@@ -1534,17 +1534,23 @@ async function renderAccuracy(){
   const lb=`<table class="acc-lb"><thead><tr><th></th><th>${tr("accPredictor")}</th><th>${tr("accOutcome")}</th><th>${tr("accExact")}</th></tr></thead><tbody>${
     board.map((r,i)=>`<tr><td class="acc-rank">${["🥇","🥈","🥉"][i]||""}</td><td class="acc-pname">${ACC_META[r.k].ic} ${nameOf(r.k)}</td><td>${r.n?`<b>${r.pct}%</b> <span class="muted">(${r.hit}/${r.n})</span>`:`<span class="muted">—</span>`}</td><td>${r.ex}</td></tr>`).join("")
   }</tbody></table>`;
-  // per-round sections, each with a collapsible team-by-team detail table
-  const rounds = (d.rounds||[]).slice().reverse().map((g,gi)=>{   // latest round on top
+  // per-round sections, each with a collapsible team-by-team detail table.
+  // Default-open the CURRENT round = the earliest round not yet fully finished
+  // (in progress / next to play); if the whole tournament is done, the last round.
+  const chrono = d.rounds || [];
+  let curChrono = chrono.findIndex(g => (g.matches||[]).some(m=>m.pending));
+  if (curChrono < 0) curChrono = chrono.length - 1;
+  const rounds = chrono.slice().reverse().map((g,gi)=>{   // latest round on top
     const order = ["model","dk","groq","openai"]
       .filter(k=>g.predictors[k] && g.predictors[k].n)
       .sort((a,b)=> (g.predictors[b].hit/g.predictors[b].n) - (g.predictors[a].hit/g.predictors[a].n));  // most correct first
     const graded = order.length>0;
+    const isCurrent = (chrono.length-1-gi) === curChrono;
     const sum = graded ? order.map((k,i)=>{ const s=g.predictors[k];
       return `<span class="accr-s${i===0?" lead":""}">${i===0?"🥇":""}${ACC_META[k].ic} ${s.hit}/${s.n}</span>`; }).join("")
       : `<span class="accr-up">${tr("upcoming")}</span>`;
     const id=`accr-${gi}`;
-    return `<div class="accr${graded?"":" open"}">
+    return `<div class="accr${isCurrent?" open":""}">
       <div class="accr-h" onclick="this.parentNode.classList.toggle('open')">
         <span class="accr-t">${accRoundLabel(g)}</span><span class="accr-sum">${sum}</span><span class="accr-cv">▾</span>
       </div>
