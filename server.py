@@ -6,7 +6,7 @@ and caches Football-Data.org (https://docs.football-data.org/) so the native
 window can render fixtures, group standings and team details.
 
 Local / personal use only. The Football-Data.org token lives in config.json
-next to this file (or next to the .app when bundled) and is read at startup.
+next to this file (or next to the .exe when bundled) and is read at startup.
 
 API (all JSON unless noted):
   GET  /                      -> worldcup.html
@@ -17,6 +17,7 @@ API (all JSON unless noted):
   GET  /api/team?id=<id>      -> { team: {...}, source }
   POST /api/refresh           -> clears the on-disk cache
 """
+import calendar
 import hashlib
 import json
 import math
@@ -44,6 +45,30 @@ import urllib.parse
 import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
+
+# ---- request-scoped memo ----------------------------------------------------
+# ThreadingHTTPServer runs one thread per request, but a single request (e.g. predict_match
+# or compute_accuracy) calls the heavy match-list parsers 10+ times — each re-reading and
+# re-parsing the same disk-cached JSON. A thread-local memo, cleared at the start of every
+# request (do_GET/do_POST), collapses those to one parse without changing cross-request
+# freshness. A force-revalidate caller (ttl=0) bypasses the memo so /api/refresh stays live.
+_req_local = threading.local()
+
+
+def _req_memo(key, producer, bypass=False):
+    cache = getattr(_req_local, "cache", None)
+    if cache is None:
+        cache = {}
+        _req_local.cache = cache
+    if not bypass and key in cache:
+        return cache[key]
+    val = producer()
+    cache[key] = val
+    return val
+
+
+def _req_memo_clear():
+    _req_local.cache = {}
 
 # ---- paths (overridable by the launcher when frozen) ------------------------
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -191,24 +216,15 @@ def rank_for(name, year=None):
     return _ranking_norm().get(_norm(name))
 
 
-def venue_for(match_id):
-    """(city, tz) for a football-data match id, or (None, None)."""
-    city = VENUES["matches"].get(str(match_id))
-    if not city:
-        return None, None
-    return city, VENUES["cities"].get(city)
-
-
 def token_ok():
     return bool(CONFIG.get("football_data_token"))
 
 
-from functools import lru_cache
 # ---- football-data.org client with disk cache -------------------------------
 def _cache_file(key):
     return os.path.join(CACHE_DIR, f"{key}.json")
 
-@lru_cache(maxsize=128)
+
 def _read_cache(key, ttl):
     path = _cache_file(key)
     try:
@@ -227,17 +243,25 @@ def _read_cache(key, ttl):
 
 def _write_cache(key, data):
     os.makedirs(CACHE_DIR, exist_ok=True)
+    path = _cache_file(key)
+    # Atomic: write to a unique temp file then os.replace (atomic on POSIX + Windows).
+    # ThreadingHTTPServer means concurrent requests may write the same key; without this a
+    # reader could observe a half-written file (caught as a parse error → stale/None fallback).
+    tmp = f"{path}.{os.getpid()}.{threading.get_ident()}.tmp"
     try:
-        with open(_cache_file(key), "w", encoding="utf-8") as f:
+        with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f)
+        os.replace(tmp, path)
     except Exception as e:
         print(f"[warn] cache write {key}: {e}")
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
 
 
 def fd_get(path, cache_key, ttl=None):
     """GET {API_BASE}{path} with token, disk-cached. Returns (data, source).
-    First checks a fast in-memory cache, then the disk cache, then live.
-    A successful live fetch populates both caches.
 
     source: "live" | "cache" | "mock". Falls back to stale cache, then mock.
     """
@@ -245,7 +269,6 @@ def fd_get(path, cache_key, ttl=None):
         ttl = int(CONFIG.get("cache_ttl_seconds", 120))
     cached, fresh = _read_cache(cache_key, ttl)
     if cached is not None and fresh:
-        # _read_cache is memoized, so this hit could be from memory or disk
         return cached, "cache"
 
     if not token_ok():
@@ -261,7 +284,6 @@ def fd_get(path, cache_key, ttl=None):
     try:
         with urllib.request.urlopen(req, timeout=12) as r:
             data = json.loads(r.read().decode("utf-8"))
-        _read_cache.cache_clear() # 새 데이터가 왔으므로 인메모리 캐시를 비웁니다.
         _write_cache(cache_key, data)
         return data, "live"
     except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as e:
@@ -274,94 +296,6 @@ def fd_get(path, cache_key, ttl=None):
 # ---- normalization ----------------------------------------------------------
 def _crest(team, area_flag=None):
     return team.get("crest") or area_flag or ""
-
-
-def normalize_matches(raw):
-    out = []
-    for m in raw.get("matches", []):
-        home, away = m.get("homeTeam", {}), m.get("awayTeam", {})
-        score = m.get("score", {}) or {}
-        ft = score.get("fullTime", {}) or {}
-        city, vtz = venue_for(m.get("id"))
-        out.append({
-            "id": m.get("id"),
-            "utcDate": m.get("utcDate"),
-            "status": m.get("status"),
-            "stage": m.get("stage"),
-            "group": m.get("group"),
-            "matchday": m.get("matchday"),
-            "venueCity": city,
-            "venueTz": vtz,
-            "home": {"id": home.get("id"), "name": home.get("name"),
-                     "tla": home.get("tla"), "crest": home.get("crest"),
-                     "rank": rank_for(home.get("name"))},
-            "away": {"id": away.get("id"), "name": away.get("name"),
-                     "tla": away.get("tla"), "crest": away.get("crest"),
-                     "rank": rank_for(away.get("name"))},
-            "score": {"home": ft.get("home"), "away": ft.get("away"),
-                      "winner": score.get("winner")},
-        })
-    out.sort(key=lambda x: (x["utcDate"] or ""))
-    return out
-
-
-def _stat_row(t):
-    team = t.get("team", {}) or {}
-    return {
-        "team": {"id": team.get("id"), "name": team.get("name"),
-                 "tla": team.get("tla"), "crest": team.get("crest"),
-                 "rank": rank_for(team.get("name"))},
-        "playedGames": t.get("playedGames") or 0,
-        "won": t.get("won") or 0, "draw": t.get("draw") or 0, "lost": t.get("lost") or 0,
-        "goalsFor": t.get("goalsFor") or 0, "goalsAgainst": t.get("goalsAgainst") or 0,
-        "goalDifference": t.get("goalDifference") or 0, "points": t.get("points") or 0,
-    }
-
-
-def normalize_standings(raw, matches=None):
-    """football-data returns one flat TOTAL table for the WC. Split it into the
-    A..L group cards using group membership derived from the group-stage matches."""
-    # team_id -> stat row (from the flat TOTAL table)
-    stats = {}
-    for s in raw.get("standings", []):
-        if s.get("type") not in (None, "TOTAL"):
-            continue
-        for t in s.get("table", []):
-            row = _stat_row(t)
-            if row["team"]["id"] is not None:
-                stats[row["team"]["id"]] = row
-
-    # group -> {team_id -> team meta}, from matches
-    membership = {}
-    for m in (matches or []):
-        grp = m.get("group")
-        if not grp or (m.get("stage") and m["stage"] != "GROUP_STAGE"):
-            continue
-        bucket = membership.setdefault(grp, {})
-        for side in ("home", "away"):
-            tm = m.get(side) or {}
-            if tm.get("id") is not None:
-                bucket[tm["id"]] = tm
-
-    if not membership:                      # no group info (e.g. mock/standings-only)
-        rows = sorted(stats.values(), key=lambda r: r["points"], reverse=True)
-        return [{"group": "STANDINGS", "table": rows}] if rows else []
-
-    groups = []
-    for grp in sorted(membership):
-        rows = []
-        for tid, meta in membership[grp].items():
-            r = stats.get(tid) or _stat_row({"team": meta})
-            r = dict(r)
-            r["team"] = {"id": tid, "name": meta.get("name"),
-                         "tla": meta.get("tla"), "crest": meta.get("crest"),
-                         "rank": rank_for(meta.get("name"))}
-            rows.append(r)
-        rows.sort(key=lambda r: (r["points"], r["goalDifference"], r["goalsFor"]), reverse=True)
-        for i, r in enumerate(rows):
-            r["position"] = i + 1
-        groups.append({"group": grp.replace("_", " ").title(), "table": rows})
-    return groups
 
 
 def normalize_team(raw):
@@ -390,50 +324,6 @@ def _flag(code):
     return f"https://flagcdn.com/w160/{code}.png"
 
 
-def mock_matches():
-    teams = {
-        "qat": {"id": 9001, "name": "Qatar", "tla": "QAT", "crest": _flag("qa")},
-        "ecu": {"id": 9002, "name": "Ecuador", "tla": "ECU", "crest": _flag("ec")},
-        "sen": {"id": 9003, "name": "Senegal", "tla": "SEN", "crest": _flag("sn")},
-        "ned": {"id": 9004, "name": "Netherlands", "tla": "NED", "crest": _flag("nl")},
-        "eng": {"id": 9005, "name": "England", "tla": "ENG", "crest": _flag("gb-eng")},
-        "irn": {"id": 9006, "name": "Iran", "tla": "IRN", "crest": _flag("ir")},
-        "usa": {"id": 9007, "name": "USA", "tla": "USA", "crest": _flag("us")},
-        "kor": {"id": 9008, "name": "Korea Republic", "tla": "KOR", "crest": _flag("kr")},
-    }
-    def mk(mid, date, h, a, group, hs=None, asc=None, status="TIMED"):
-        return {"id": mid, "utcDate": date, "status": status, "stage": "GROUP_STAGE",
-                "group": group, "matchday": 1, "home": teams[h], "away": teams[a],
-                "score": {"home": hs, "away": asc, "winner": None}}
-    return {"matches": [
-        mk(1, "2026-06-14T16:00:00Z", "qat", "ecu", "Group A", 0, 2, "FINISHED"),
-        mk(2, "2026-06-14T19:00:00Z", "sen", "ned", "Group A", 0, 2, "FINISHED"),
-        mk(3, "2026-06-14T22:00:00Z", "eng", "irn", "Group B", 6, 2, "FINISHED"),
-        mk(4, "2026-06-15T13:00:00Z", "usa", "kor", "Group B"),
-        mk(5, "2026-06-15T16:00:00Z", "qat", "sen", "Group A"),
-        mk(6, "2026-06-15T19:00:00Z", "ned", "ecu", "Group A"),
-        mk(7, "2026-06-16T19:00:00Z", "eng", "usa", "Group B"),
-        mk(8, "2026-06-16T22:00:00Z", "irn", "kor", "Group B"),
-    ]}
-
-
-def mock_standings():
-    def row(tid, name, code, p, w, d, l, gf, ga, pts):
-        return {"team": {"id": tid, "name": name, "tla": code.upper()[:3], "crest": _flag(code)},
-                "playedGames": p, "won": w, "draw": d, "lost": l,
-                "goalsFor": gf, "goalsAgainst": ga, "goalDifference": gf - ga, "points": pts}
-    # team ids align with mock_matches() so group bucketing finds their stats
-    return {"standings": [{"type": "TOTAL", "table": [
-        row(9004, "Netherlands", "nl", 1, 1, 0, 0, 2, 0, 3),
-        row(9002, "Ecuador", "ec", 1, 1, 0, 0, 2, 0, 3),
-        row(9003, "Senegal", "sn", 1, 0, 0, 1, 0, 2, 0),
-        row(9001, "Qatar", "qa", 1, 0, 0, 1, 0, 2, 0),
-        row(9005, "England", "gb-eng", 1, 1, 0, 0, 6, 2, 3),
-        row(9007, "USA", "us", 0, 0, 0, 0, 0, 0, 0),
-        row(9008, "Korea Republic", "kr", 0, 0, 0, 0, 0, 0, 0),
-        row(9006, "Iran", "ir", 1, 0, 0, 1, 2, 6, 0)]}]}
-
-
 def mock_team(team_id):
     names = {9004: ("Netherlands", "nl"), 9005: ("England", "gb-eng"),
              9008: ("Korea Republic", "kr")}
@@ -452,19 +342,72 @@ def mock_team(team_id):
 
 
 # ---- data assembly ----------------------------------------------------------
+def _utc_epoch(iso):
+    """ESPN UTC timestamp ('2026-07-19T19:00Z') -> epoch seconds, or None."""
+    if not iso:
+        return None
+    for fmt in ("%Y-%m-%dT%H:%MZ", "%Y-%m-%dT%H:%M:%SZ"):
+        try:
+            return calendar.timegm(time.strptime(iso, fmt))
+        except ValueError:
+            continue
+    return None
+
+
+def _live_ttl(season):
+    """Adaptive cache lifetime for the current edition. The schedule and finished results never
+    change, so we only re-fetch ESPN when live state actually can: poll tightly while a match is
+    in play (or just finished — knockout slots are filling in), and otherwise hold the cache until
+    just before the next kickoff. Between match days this means ~no API calls at all; a fully
+    finished edition caches permanently. Finished scores ride along in the held list — no refetch."""
+    short = int(CONFIG.get("cache_ttl_seconds", 60))
+    cached, _ = _read_cache(f"espn-year-{season}", 10 ** 9)
+    if not cached:
+        return short
+    now = time.time()
+    any_unfinished = False
+    recent_finish = False
+    next_kick = None
+    for ev in cached.get("events", []):
+        name = (((ev.get("status") or {}).get("type") or {}).get("name") or "")
+        state = (((ev.get("status") or {}).get("type") or {}).get("state") or "")
+        ts = _utc_epoch(ev.get("date"))
+        if state == "in" or any(k in name for k in ("HALF", "IN_PROGRESS", "OVERTIME", "SHOOTOUT", "PROGRESS")):
+            return short                                       # live now → track closely
+        if "FINAL" in name or name == "STATUS_FULL_TIME":
+            if ts is not None and 0 <= now - ts <= 4 * 3600:   # just finished → downstream bracket
+                recent_finish = True                           # slots may still be populating
+            continue
+        any_unfinished = True
+        if ts is not None and ts <= now and now - ts <= 4 * 3600:
+            return short                                       # kickoff passed, not yet live/final → poll
+        if ts is not None and ts > now and (next_kick is None or ts < next_kick):
+            next_kick = ts
+    if not any_unfinished:
+        return 10 ** 9                                         # whole edition final → permanent
+    if recent_finish:
+        return max(short, 300)                                 # settle window: catch slot fill-ins
+    if next_kick is None:
+        return 6 * 3600                                        # nothing parseable upcoming → hold
+    return int(max(short, min(next_kick - now - 120, 6 * 3600)))  # hold until ~2 min pre-kickoff
+
+
 def get_matches():
-    """Current edition fixtures/scores — ESPN, short cache (live). No token, no mock."""
-    season = CONFIG.get("season")
-    ttl = int(CONFIG.get("cache_ttl_seconds", 60))
-    return get_matches_espn(str(season), ttl=ttl)
+    """Current edition fixtures/scores — ESPN, adaptive cache (see _live_ttl). No token, no mock."""
+    season = str(CONFIG.get("season"))
+    return get_matches_espn(season, ttl=_live_ttl(season))
 
 
 def _espn_status(s):
-    n = ((s or {}).get("type") or {}).get("name", "")
-    if "FINAL" in n or n == "STATUS_FULL_TIME":
-        return "FINISHED"
-    if any(k in n for k in ("HALF", "IN_PROGRESS", "OVERTIME", "SHOOTOUT", "PROGRESS")):
+    t = (s or {}).get("type") or {}
+    n = t.get("name", "") or ""
+    state = t.get("state", "") or ""
+    # live FIRST: a level knockout heading into ET/PK stays state="in" (and STATUS_SHOOTOUT) — it is
+    # NOT finished even though ESPN may flash STATUS_FULL_TIME. Only completed/post is truly final.
+    if state == "in" or any(k in n for k in ("HALF", "IN_PROGRESS", "OVERTIME", "SHOOTOUT", "PROGRESS")):
         return "IN_PLAY"
+    if t.get("completed") is True or state == "post" or "FINAL" in n or n == "STATUS_FULL_TIME":
+        return "FINISHED"
     return "SCHEDULED"
 
 
@@ -475,8 +418,16 @@ _ESPN_STAGE = {"group-stage": "GROUP_STAGE", "round-of-32": "LAST_32", "round-of
 
 def get_matches_espn(year, ttl=10 ** 9):
     """Full match list from ESPN for an edition (one call per year). ttl is small for
-    the live edition (scores change) and permanent for finished past editions."""
-    data = http_json(f"{ESPN_BASE}/scoreboard?dates={year}", f"espn-year-{year}", ttl=ttl)
+    the live edition (scores change) and permanent for finished past editions.
+    Memoized per request (ttl=0 bypasses) — the predict/accuracy paths call this many times."""
+    return _req_memo(("matches_espn", str(year)),
+                     lambda: _get_matches_espn(year, ttl), bypass=(ttl == 0))
+
+
+def _get_matches_espn(year, ttl):
+    # limit=300: ESPN's scoreboard defaults to 100 events → the 2026 WC has 104 (incl. SF/3rd/final),
+    # so without this the last 4 knockout matches get silently dropped.
+    data = http_json(f"{ESPN_BASE}/scoreboard?dates={year}&limit=300", f"espn-year-{year}", ttl=ttl)
     out = []
     for ev in (data or {}).get("events", []):
         comp = (ev.get("competitions") or [{}])[0]
@@ -494,6 +445,12 @@ def get_matches_espn(year, ttl=10 ** 9):
                 return int(c.get("score"))
             except (TypeError, ValueError):
                 return None
+
+        def sho(c):   # penalty-shootout score (knockout matches level after ET)
+            try:
+                return int(c.get("shootoutScore"))
+            except (TypeError, ValueError):
+                return None
         v = comp.get("venue", {}) or {}
         city = (v.get("address", {}) or {}).get("city")
         st = ev.get("status") or {}
@@ -506,7 +463,9 @@ def get_matches_espn(year, ttl=10 ** 9):
                     "detail": stype.get("shortDetail") or stype.get("detail"),
                     "statusState": stype.get("state"),
                     "home": team(h), "away": team(a),
-                    "score": {"home": sc(h), "away": sc(a), "winner": None}})
+                    "score": {"home": sc(h), "away": sc(a), "winner": None,
+                              "pens": ({"home": sho(h), "away": sho(a)}
+                                       if (sho(h) is not None or sho(a) is not None) else None)}})
     out.sort(key=lambda x: x["utcDate"] or "")
     return {"dates": unique_dates(out), "matches": out, "source": "espn"}
 
@@ -567,11 +526,10 @@ def save_edition(year):
 def get_standings():
     """Current edition group standings — ESPN, short cache (live). No token, no mock.
     Enriched with each team's yellow/red card totals for display."""
-    season = CONFIG.get("season")
-    ttl = int(CONFIG.get("cache_ttl_seconds", 60))
-    data = get_standings_espn(str(season), ttl=ttl)
+    season = str(CONFIG.get("season"))
+    data = get_standings_espn(season, ttl=_live_ttl(season))
     try:
-        tot = _team_card_totals(season)
+        tot = _team_card_totals_nonblocking(season)
         for g in data.get("groups", []):
             for r in g.get("table", []):
                 c = tot.get(_canon((r.get("team") or {}).get("name")), {})
@@ -648,7 +606,7 @@ def third_place_odds(N=4000):
              t3                         %    P(finish 3rd AND make the best-8)
       could3 — teams that can still finish 3rd in their group
     Recomputed only when a match finishes (cached by the finished-results signature)."""
-    sig = _finished_signature()                 # recompute only when a match has finished
+    sig = _group_stage_signature()              # group-stage only → stable through the knockouts
     cached, _ = _read_cache("advodds", 10 ** 9)
     if cached is not None and cached.get("sig") == sig:
         return cached.get("data")
@@ -740,6 +698,176 @@ def third_place_odds(N=4000):
     return out
 
 
+_advtrend = set()
+
+
+def advancement_trend(N=3000):
+    """R32 advancement story for the current edition, stepped PER ROUND-3 MATCH (calendar dates
+    mix groups): baseline = end of round 2, then each round-3 match applied in kickoff order with
+    the rest Monte-Carlo'd. Per checkpoint: every team's advancement probability + each
+    third-placed team's wildcard bingo vs the other groups' 3rd places. Cached by the
+    finished-results signature (recomputed only on a new result)."""
+    sig = _group_stage_signature()              # group-stage only → stable through the knockouts
+    cached, _ = _read_cache("advtrend", 10 ** 9)
+    if cached is not None and cached.get("sig") == sig:
+        return cached.get("data")
+    season = str(CONFIG.get("season"))
+    team2L = {}
+    for g in (get_standings_espn(season) or {}).get("groups", []):
+        L = re.sub(r"(?i)^group\s*", "", g.get("group") or "").strip()
+        for r in g.get("table", []):
+            nm = (r.get("team") or {}).get("name")
+            if nm:
+                team2L[nm] = L
+    groups = {}
+    for nm, L in team2L.items():
+        groups.setdefault(L, []).append(nm)
+    GL = sorted(groups)
+    if not team2L:
+        return {"labels": [], "marks": [], "teams": [], "boards": {}, "order": [],
+                "groupThirds": [], "groupsList": GL}
+    cards = {nm: 0 for nm in team2L}
+    gs = []
+    for m in get_matches().get("matches", []):
+        if m.get("stage") != "GROUP_STAGE":
+            continue
+        h = (m.get("home") or {}).get("name"); a = (m.get("away") or {}).get("name")
+        if h not in team2L or a not in team2L:
+            continue
+        sc = m.get("score") or {}
+        gs.append({"utc": m.get("utcDate") or "", "L": team2L[h], "h": h, "a": a,
+                   "hs": sc.get("home"), "as": sc.get("away"),
+                   "fin": m.get("status") == "FINISHED" and sc.get("home") is not None})
+    # assign each group-stage match a matchday (1/2/3) by kickoff order within its group
+    bygrp = {}
+    for r in gs:
+        bygrp.setdefault(r["L"], []).append(r)
+    for arr in bygrp.values():
+        arr.sort(key=lambda r: r["utc"])
+        for i, r in enumerate(arr):
+            r["md"] = i // 2 + 1
+    # Round-3 view: x-axis is PER MATCH (calendar dates mix groups). Baseline = end of round 2,
+    # then step through each round-3 match in kickoff order; the rest of round 3 is simulated.
+    base_apply = [r for r in gs if r.get("md", 9) <= 2 and r["fin"] and r["hs"] is not None]
+    r3fin = sorted([r for r in gs if r.get("md") == 3 and r["fin"] and r["hs"] is not None], key=lambda r: r["utc"])
+    always_rem = [r for r in gs if not (r["fin"] and r["hs"] is not None)]
+    labels = ["2R"] + [str(i + 1) for i in range(len(r3fin))]
+    marks = [None] + [{"h": r["h"], "a": r["a"], "hs": r["hs"], "as": r["as"], "L": r["L"]} for r in r3fin]
+
+    def pois(lam):
+        lam = min(lam, 8.0); cut = math.exp(-lam); k, p = 0, 1.0
+        while True:
+            k += 1; p *= random.random()
+            if p <= cut:
+                return k - 1
+    tkey = lambda b, n: (b[n]["pts"], b[n]["gf"] - b[n]["ga"], b[n]["gf"])
+    AVG, KK = 1.3, 2.0
+
+    def state_after(k):                          # results through round-3 match #k applied; rest simulated
+        base = {nm: {"pts": 0, "gf": 0, "ga": 0, "p": 0} for nm in team2L}
+        fixed = {L: [] for L in groups}
+        for r in base_apply + r3fin[:k]:
+            h, a, hs, asc = r["h"], r["a"], r["hs"], r["as"]
+            base[h]["gf"] += hs; base[h]["ga"] += asc; base[h]["p"] += 1
+            base[a]["gf"] += asc; base[a]["ga"] += hs; base[a]["p"] += 1
+            base[h]["pts"] += 3 if hs > asc else 1 if hs == asc else 0
+            base[a]["pts"] += 3 if asc > hs else 1 if asc == hs else 0
+            fixed[r["L"]].append((h, a, hs, asc))
+        rem = [(r["h"], r["a"], r["L"]) for r in (r3fin[k:] + always_rem)]
+        orders = {L: _rank_group_2026(names, {n: base[n]["pts"] for n in names},
+                  {n: base[n]["gf"] for n in names}, {n: base[n]["ga"] for n in names}, cards, fixed.get(L, []))
+                  for L, names in groups.items()}
+        return base, orders, fixed, rem
+
+    states = [state_after(k) for k in range(len(r3fin) + 1)]
+    trend = {nm: [] for nm in team2L}
+    for base, orders, fixed, rem in states:
+        rate = {nm: {"atk": (b["gf"] + AVG * KK) / (b["p"] + KK), "dfn": (b["ga"] + AVG * KK) / (b["p"] + KK)}
+                for nm, b in base.items()}
+        adv = {nm: 0 for nm in team2L}
+        for _ in range(N):
+            pts = {nm: base[nm]["pts"] for nm in team2L}
+            gf = {nm: base[nm]["gf"] for nm in team2L}; ga = {nm: base[nm]["ga"] for nm in team2L}
+            simres = {L: list(v) for L, v in fixed.items()}
+            for h, a, L in rem:
+                lh = max(.2, (rate[h]["atk"] + rate[a]["dfn"]) / 2 * 1.08)
+                la = max(.2, (rate[a]["atk"] + rate[h]["dfn"]) / 2 * 0.94)
+                gh, gaw = pois(lh), pois(la)
+                gf[h] += gh; ga[h] += gaw; gf[a] += gaw; ga[a] += gh
+                if gh > gaw:
+                    pts[h] += 3
+                elif gaw > gh:
+                    pts[a] += 3
+                else:
+                    pts[h] += 1; pts[a] += 1
+                simres.setdefault(L, []).append((h, a, gh, gaw))
+            adv_set, thirds = set(), []
+            for L, names in groups.items():
+                order = _rank_group_2026(names, pts, gf, ga, cards, simres.get(L, []))
+                if order:
+                    adv_set.add(order[0])
+                if len(order) > 1:
+                    adv_set.add(order[1])
+                if len(order) > 2:
+                    thirds.append(order[2])
+            thirds.sort(key=lambda n: (pts[n], gf[n] - ga[n], gf[n]), reverse=True)
+            for n in thirds[:8]:
+                adv_set.add(n)
+            for n in adv_set:
+                adv[n] += 1
+        for nm in team2L:
+            trend[nm].append(round(100 * adv[nm] / N, 1))
+
+    # shared per-day 3rd place of each group (so boards don't repeat it)
+    groupThirds = []
+    for base, orders, _f, _r in states:
+        row = {}
+        for L in GL:
+            od = orders[L]; third = od[2] if len(od) > 2 else None
+            t = base[third] if third else None
+            row[L] = {"team": third, "has": bool(third) and (t["p"] > 0 if t else False),
+                      "pts": t["pts"] if t else 0, "gd": (t["gf"] - t["ga"]) if t else 0, "gf": t["gf"] if t else 0}
+        groupThirds.append(row)
+
+    # focus = every team that finished 3rd in its group; sorted by final 3rd-place key
+    fbase, forders = states[-1][0], states[-1][1]
+    finals3 = [forders[L][2] for L in groups if len(forders[L]) > 2]
+    finals3.sort(key=lambda n: tkey(fbase, n), reverse=True)
+    advancers = set(finals3[:8])
+
+    boards = {}
+    for F in finals3:
+        gF = team2L[F]
+        days = []
+        for di, (base, orders, _f, _r) in enumerate(states):
+            bF = base[F]; lineF = [bF["pts"], bF["gf"] - bF["ga"], bF["gf"]]
+            favL = []
+            for L in GL:
+                if L == gF:
+                    continue
+                c = groupThirds[di][L]
+                if c["has"] and bF["p"] > 0 and tuple(lineF) > (c["pts"], c["gd"], c["gf"]):
+                    favL.append(L)
+            thirds_now = [orders[L][2] for L in groups if len(orders[L]) > 2 and base[orders[L][2]]["p"] > 0]
+            rank3 = None
+            if F in thirds_now:
+                ts = sorted(thirds_now, key=lambda n: tkey(base, n), reverse=True)
+                rank3 = [ts.index(F) + 1, len(ts)]
+            days.append({"adv": trend[F][di], "line": lineF, "favL": favL, "fav": len(favL),
+                         "rank3": rank3, "grpRank": orders[gF].index(F) + 1 if F in orders[gF] else None})
+        ft = boards
+        boards[F] = {"group": gF, "advanced": F in advancers,
+                     "finalRank3": days[-1]["rank3"], "peak": max(trend[F]),
+                     "days": days}
+
+    teams = [{"name": nm, "group": team2L[nm], "trend": trend[nm], "third": nm in boards}
+             for nm in team2L]
+    data = {"labels": labels, "marks": marks, "groupsList": GL, "teams": teams, "order": finals3,
+            "groupThirds": groupThirds, "boards": boards}
+    _write_cache("advtrend", {"sig": sig, "data": data})
+    return data
+
+
 def get_team(team_id):
     raw, source = fd_get(f"/teams/{team_id}", f"team-{team_id}", ttl=10 ** 9)  # squad/coach static
     if raw is None and CONFIG.get("use_mock_when_unavailable", True):
@@ -791,7 +919,6 @@ def _canon(name):
     return _ALIAS.get(n, n)
 
 
-@lru_cache(maxsize=64)
 def http_json(url, cache_key, ttl, headers=None):
     cached, fresh = _read_cache(cache_key, ttl)
     if cached is not None and fresh:
@@ -802,7 +929,6 @@ def http_json(url, cache_key, ttl, headers=None):
     try:
         with urllib.request.urlopen(req, timeout=12) as r:
             data = json.loads(r.read().decode("utf-8"))
-        http_json.cache_clear() # 새 데이터가 왔으므로 인메모리 캐시를 비웁니다.
         _write_cache(cache_key, data)
         return data
     except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, ValueError) as e:
@@ -973,7 +1099,7 @@ def youtube_first_video(query):
     url = ("https://www.youtube.com/results?search_query="
            + urllib.parse.quote(query) + "&hl=en&gl=US")
     req = urllib.request.Request(url, headers={
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                       "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36",
         "Accept-Language": "en-US,en;q=0.9",
     })
@@ -1078,34 +1204,6 @@ def espn_roster(name, season=None):
 TSDB = "https://www.thesportsdb.com/api/v1/json/3"
 
 
-def tsdb_team_id(name):
-    data = http_json(f"{TSDB}/searchteams.php?t={urllib.parse.quote(name)}",
-                     f"tsdb-t-{_norm(name)}", ttl=10 ** 9)
-    teams = (data or {}).get("teams") or []
-    want = _canon(name)
-    for t in teams:
-        if t.get("strSport") == "Soccer" and _canon(t.get("strTeam")) == want:
-            return t.get("idTeam")
-    for t in teams:
-        if t.get("strSport") == "Soccer":
-            return t.get("idTeam")
-    return None
-
-
-def tsdb_photos(name):
-    """{normalized player name: photo url} from TheSportsDB (free, no daily cap)."""
-    tid = tsdb_team_id(name)
-    if not tid:
-        return {}
-    data = http_json(f"{TSDB}/lookup_all_players.php?id={tid}", f"tsdb-p-{tid}", ttl=14 * 86400)
-    out = {}
-    for p in (data or {}).get("player") or []:
-        ph = p.get("strThumb") or p.get("strCutout")   # prefer photos with a background
-        if ph and p.get("strPlayer"):
-            out[_norm(p.get("strPlayer"))] = ph
-    return out
-
-
 def tsdb_player(name):
     """{photo, club} for a player by name from TheSportsDB (free, no daily cap), cached."""
     if not name:
@@ -1190,6 +1288,7 @@ def _photo_sync_worker():
     photo queue stays responsive); re-checks periodically for teams added later (knockouts)."""
     time.sleep(8)                                   # let the server finish booting
     while True:
+        _req_memo_clear()                           # long-lived thread: drop last pass's memo so ttl=600 re-checks
         try:
             year = CONFIG.get("season")
             data = get_matches_espn(str(year), ttl=600) or {}
@@ -1249,21 +1348,6 @@ def tsdb_player_clubinfo(name):
     return {"club": club, "clubCountry": tsdb_team_country(club) if club else None, "photo": photo}
 
 
-def tsdb_manager_info(team_name):
-    """감독 정보(이름, 국적)를 TheSportsDB에서 가져옵니다."""
-    if not team_name:
-        return {}
-    tid = tsdb_team_id(team_name)
-    if not tid:
-        return {}
-    data = http_json(f"{TSDB}/lookupteam.php?id={tid}", f"tsdb-teamdetail-{tid}", ttl=14 * 86400)
-    team_data = (data or {}).get("teams", [{}])[0]
-    return {
-        "managerName": team_data.get("strManager"),
-        "managerNationality": tsdb_player_clubinfo(team_data.get("strManager")).get("nationality")
-    }
-
-
 def player_names(name):
     """Player name in en/ko/ja/zh via Wikipedia language links (e.g. 久保建英 / 구보 다케후사)."""
     if not name:
@@ -1291,6 +1375,24 @@ def _parse_box_stats(data):
             continue
         for s in (t.get("statistics") or []):
             out[side][s.get("name")] = s.get("displayValue")
+    return out if (out["home"] or out["away"]) else None
+
+
+def _parse_shootout(data, home_name, away_name):
+    """ESPN summary 'shootout' → per-side kick list with player + made/missed, for the X·O timeline.
+    Returns {'home':[{n,player,scored}], 'away':[...]} or None when there was no shootout."""
+    sh = data.get("shootout") or []
+    if not sh:
+        return None
+    out = {"home": [], "away": []}
+    for blk in sh:
+        side = ("home" if _canon(blk.get("team")) == _canon(home_name)
+                else "away" if _canon(blk.get("team")) == _canon(away_name) else None)
+        if not side:
+            continue
+        for s in (blk.get("shots") or []):
+            out[side].append({"n": s.get("shotNumber"), "player": s.get("player"),
+                              "scored": bool(s.get("didScore"))})
     return out if (out["home"] or out["away"]) else None
 
 
@@ -1394,15 +1496,20 @@ def _parse_h2h(data, home_name, away_name):
 
 
 def get_match_espn(espn_id):
-    """Match detail for a past-edition match (ESPN event id): score, events, venue, weather, stats."""
+    """Match detail for a past-edition match (ESPN event id): score, events, venue, weather, stats.
+    Memoized per request — _card_suspensions/_player_ratings call this once per finished match."""
+    return _req_memo(("match_espn", str(espn_id)), lambda: _get_match_espn(espn_id))
+
+
+def _get_match_espn(espn_id):
     saved, _ = _read_cache(f"match-final-{espn_id}", 10 ** 9)
     if saved is not None:
         subs_old = bool(saved.get("subs")) and any("reason" not in x for arr in saved["subs"].values() for x in arr)
         h2h_ev = (saved.get("h2h") or {}).get("events") or []
         h2h_old = bool(h2h_ev) and "hs" not in h2h_ev[0]
         need = (not saved.get("stats") or not saved.get("subs") or subs_old
-                or "form" not in saved or "h2h" not in saved or h2h_old)
-        if need:   # backfill/upgrade older cached finals
+                or "form" not in saved or "h2h" not in saved or h2h_old or "shootout" not in saved)
+        if need:   # backfill/upgrade older cached finals (one-time per match, then served from cache)
             try:
                 d2 = http_json(f"{ESPN_BASE}/summary?event={espn_id}", f"espn-sum-{espn_id}", ttl=10 ** 9)
                 hn, an = (saved.get("home") or {}).get("name"), (saved.get("away") or {}).get("name")
@@ -1414,6 +1521,7 @@ def get_match_espn(espn_id):
                     saved["subs"] = sb
                 saved["form"] = _parse_form(d2 or {}, hn, an)
                 saved["h2h"] = _parse_h2h(d2 or {}, hn, an)
+                saved["shootout"] = _parse_shootout(d2 or {}, hn, an)
                 _write_cache(f"match-final-{espn_id}", saved)
             except Exception:
                 pass
@@ -1435,6 +1543,12 @@ def get_match_espn(espn_id):
             return int(c.get("score"))
         except (TypeError, ValueError):
             return None
+
+    def sho(c):
+        try:
+            return int(c.get("shootoutScore"))
+        except (TypeError, ValueError):
+            return None
     h, a = cs.get("home", {}), cs.get("away", {})
     status = _espn_status(comp.get("status"))
     events, venue, odds = espn_events(espn_id, (h.get("team") or {}).get("id"), (a.get("team") or {}).get("id"))
@@ -1442,11 +1556,15 @@ def get_match_espn(espn_id):
     vname, vcity = (venue or {}).get("fullName"), vaddr.get("city")
     utc = comp.get("date") or ""
     out = {"id": espn_id, "home": team(h), "away": team(a), "utcDate": utc, "status": status,
-           "score": {"home": sc(h), "away": sc(a)}, "group": None, "espnMatched": True, "espnId": espn_id,
+           "score": {"home": sc(h), "away": sc(a),
+                     "pens": ({"home": sho(h), "away": sho(a)}
+                              if (sho(h) is not None or sho(a) is not None) else None)},
+           "group": None, "espnMatched": True, "espnId": espn_id,
            "events": events, "odds": odds, "attendance": None, "stats": _parse_box_stats(data),
            "subs": _parse_subs(data, (h.get("team") or {}).get("id"), (a.get("team") or {}).get("id")),
            "form": _parse_form(data, team(h)["name"], team(a)["name"]),
            "h2h": _parse_h2h(data, team(h)["name"], team(a)["name"]),
+           "shootout": _parse_shootout(data, team(h)["name"], team(a)["name"]),
            "venue": {"name": vname, "city": vcity, "country": vaddr.get("country"),
                      "image": ((venue_aerial(vname) or wiki_image(vname)) if vname else None),
                      "capacity": None, "surface": None},
@@ -1592,32 +1710,6 @@ def _team_form_before(name, year, before_utc):
     return {"played": played, "points": pts, "gf": gf, "ga": ga, "gd": gf - ga}
 
 
-def _team_injuries(name, year):
-    try:
-        roster = espn_roster(name, season=year) or []
-    except Exception:
-        roster = []
-    return sum(1 for p in roster if p.get("available") is False)
-
-
-def _suspension_penalty(name, year, before_utc):
-    """Red cards in the team's MOST RECENT finished match before this one → players
-    suspended for THIS match only. Cards reflect from the next match (not the first),
-    and clear after the suspension is served — not a permanent cumulative penalty."""
-    cn = _canon(name)
-    cand = [m for m in get_matches_espn(str(year), ttl=300).get("matches", [])
-            if m.get("status") == "FINISHED" and (m.get("utcDate") or "") < (before_utc or "~")
-            and cn in (_canon((m.get("home") or {}).get("name")), _canon((m.get("away") or {}).get("name")))]
-    if not cand:
-        return 0
-    cand.sort(key=lambda m: m.get("utcDate") or "")
-    last = cand[-1]
-    side = "home" if _canon((last.get("home") or {}).get("name")) == cn else "away"
-    det = (get_match_espn(str(last.get("id"))) or {}).get("match") or {}
-    return sum(1 for e in det.get("events", [])
-               if e.get("side") == side and "card" in (t := (e.get("type") or "").lower()) and "red" in t)
-
-
 def _card_suspensions(team_name, year, before_utc):
     """Set of normalized player names suspended for this team's match at `before_utc`, applying
     FIFA card rules chronologically:
@@ -1719,18 +1811,6 @@ def _injury_impact(team_name, year, ratings):
         roster = []
     return round(sum(ratings.get(_norm(p.get("name") or ""), 1.0)
                      for p in roster if p.get("available") is False), 2)
-
-
-def _rating(name, year, form, inj, susp):
-    rank = rank_for(name, year) or 60
-    R = 1500.0
-    R += (50 - min(max(int(rank), 1), 130)) * 4          # FIFA ranking (base strength; tuned down vs overconfident)
-    if form and form["played"] > 0:                       # PRE-MATCH form (games before this one)
-        R += (form["points"] / form["played"]) * 40
-        R += (form["gd"] / form["played"]) * 20
-    R -= inj * 8                                          # current injuries / unavailable
-    R -= susp * 30                                        # players suspended for THIS match (prev-match reds)
-    return R
 
 
 _CONFED = {}
@@ -1993,10 +2073,6 @@ def predict_match(mid):
     this_co = geocode(this_city) if this_city else None
     rh, th = _rest_travel(h, year, utc, this_co)
     ra, ta = _rest_travel(a, year, utc, this_co)
-    # 감독(Manager) 피처 추가
-    mgr_h = tsdb_manager_info(h)
-    mgr_a = tsdb_manager_info(a)
-
     rest_travel = {h: (rh, th), a: (ra, ta)}
     # raw pre-match stats only — probabilities/scoreline computed client-side so the
     # user can re-weight the factors live (see computePrediction in worldcup.html)
@@ -2011,8 +2087,7 @@ def predict_match(mid):
                 "host": 1 if _canon(nm) in _HOSTS_2026 else 0,
                 "top": sc[0] if sc else None, "rest": rest, "travel": travel,
                 "cal": _team_calibration(nm, year, utc),
-                "atk": ad.get("atk"), "mid": ad.get("mid"), "dfn": ad.get("dfn"), "gk": ad.get("gk"),
-                "manager": mgr_h if nm == h else mgr_a}
+                "atk": ad.get("atk"), "mid": ad.get("mid"), "dfn": ad.get("dfn"), "gk": ad.get("gk")}
     return {"available": True, "status": detail.get("status"), "weather": detail.get("weather") or {},
             "home": stat(h, fh, injh, suh), "away": stat(a, fa, inja, sua)}
 
@@ -2154,10 +2229,17 @@ def _ai_revalidate_bg(mid, provider, ckey):
 
 
 def ai_pick(mid, provider):
-    """Cached real-LLM pick. provider = 'groq' | 'openai'. Show the cached pick immediately;
-    if it's stale, refresh in the background and replace it only on success (never blanks)."""
+    """Cached real-LLM pick. provider = 'groq' | 'openai'.
+    • groq   — live: show the cached pick now, refresh stale ones in the background (replace only on success).
+    • openai — ChatGPT picks are entered MANUALLY (no working API), so this is CACHE-ONLY: it never calls
+      the API and never writes, so a hand-cached pick is never overwritten or blanked."""
     provider = "openai" if provider == "openai" else "groq"
     ckey = f"aipick-{provider}-{mid}"
+    if provider == "openai":
+        cached, _ = _read_cache(ckey, 10 ** 9)
+        if cached is not None and cached.get("available"):
+            return cached
+        return {"available": False, "reason": "manual", "provider": "openai"}
     det = (get_match_espn(str(mid)) or {}).get("match") or {}
     ttl = 10 ** 9 if det.get("status") == "FINISHED" else 21600
     cached, fresh = _read_cache(ckey, ttl)
@@ -2208,15 +2290,27 @@ def _model_pick_py(pr):
     dfn = lambda t: eg(t.get("ga", 0) or 0, t["dfn"] if t.get("dfn") is not None else K["avg"], t.get("played", 0) or 0)
     gk = lambda t: max(.82, min(1.18, 1 - (t["gk"] - .35) * .5)) if t.get("gk") is not None else 1
     tilt = max(-K["tiltCap"], min(K["tiltCap"], dr / K["tiltScale"]))
-    lh = max(.2, ((atk(h) + dfn(a)) / 2) * (1 + tilt) * gk(a))
-    la = max(.2, ((atk(a) + dfn(h)) / 2) * (1 - tilt) * gk(h))
-    best, sH, sA = -1, 1, 1
+    wx = pr.get("weather") or {}                 # heat/humidity/wind dampen goals (match computePrediction)
+    damp = 1.0
+    if wx.get("temp") is not None and wx["temp"] >= 30: damp -= 0.08
+    if wx.get("humidity") is not None and wx["humidity"] >= 75: damp -= 0.06
+    if wx.get("wind") is not None and wx["wind"] >= 30: damp -= 0.06
+    damp = max(0.8, damp)
+    lh = max(.2, ((atk(h) + dfn(a)) / 2) * (1 + tilt) * gk(a) * damp)
+    la = max(.2, ((atk(a) + dfn(h)) / 2) * (1 - tilt) * gk(h) * damp)
+    oc = "home" if home >= draw and home >= away else "away" if away >= draw else "draw"
+    # The shown scoreline must agree with the W/D/L pick: an unconstrained Poisson mode can be a
+    # draw (1-1) even when a side is favored, which looked like a wrong pick on the Accuracy tab.
+    # Pick the most likely scoreline consistent with the predicted outcome.
+    cons = (lambda i, j: i > j) if oc == "home" else (lambda i, j: j > i) if oc == "away" else (lambda i, j: i == j)
+    best = -1; sH, sA = (1, 0) if oc == "home" else (0, 1) if oc == "away" else (1, 1)
     for i in range(7):
         for j in range(7):
+            if not cons(i, j):
+                continue
             p2 = (math.exp(-lh) * lh ** i / math.factorial(i)) * (math.exp(-la) * la ** j / math.factorial(j))
             if p2 > best + 1e-9 or (p2 > best - 1e-9 and i + j > sH + sA):
                 best = max(best, p2); sH, sA = i, j
-    oc = "home" if home >= draw and home >= away else "away" if away >= draw else "draw"
     return {"winner": oc, "scoreHome": sH, "scoreAway": sA}
 
 
@@ -2292,8 +2386,14 @@ def compute_accuracy():
             if exact:
                 t["exact"] += 1
 
-    def res_of(sh, sa):   # outcome implied by the SHOWN scoreline (so colors match the number)
+    def res_of(sh, sa):   # outcome implied by a scoreline
         return "home" if sh > sa else "away" if sa > sh else "draw"
+
+    def pick_outcome(p):  # a predictor's W/D/L call: its STATED winner, else inferred from its score.
+        # The model/AI give an explicit winner; a Poisson-mode scoreline alone can read as a draw
+        # even when a side is favored, so the stated winner is the real pick to grade.
+        w = p.get("winner")
+        return w if w in ("home", "away", "draw") else res_of(p.get("scoreHome"), p.get("scoreAway"))
 
     for m in allm:
         sc = m.get("score") or {}
@@ -2320,7 +2420,7 @@ def compute_accuracy():
             row = {"home": hn, "away": an, "actual": f"{ah}-{aa}", "ao": ao}
             mp = _model_pick_cached(mid)
             if mp:
-                ok = res_of(mp["scoreHome"], mp["scoreAway"]) == ao
+                ok = pick_outcome(mp) == ao
                 ex = mp["scoreHome"] == ah and mp["scoreAway"] == aa
                 tally(g, "model", ok, ex)
                 row["model"] = f'{mp["scoreHome"]}-{mp["scoreAway"]}'; row["model_ok"] = ok; row["model_ex"] = ex
@@ -2334,7 +2434,7 @@ def compute_accuracy():
             for pv in ("groq", "openai"):
                 r = _ai_pick_cached(mid, pv)
                 if r and r.get("available"):
-                    ok = res_of(r.get("scoreHome"), r.get("scoreAway")) == ao
+                    ok = pick_outcome(r) == ao
                     ex = r.get("scoreHome") == ah and r.get("scoreAway") == aa
                     tally(g, pv, ok, ex)
                     row[pv] = f'{r.get("scoreHome")}-{r.get("scoreAway")}'; row[pv + "_ok"] = ok; row[pv + "_ex"] = ex
@@ -2410,12 +2510,17 @@ def _accuracy_warm_worker():
     (warms the per-match model-pick cache + the 5-min accuracy cache)."""
     time.sleep(12)
     while True:
+        _req_memo_clear()                           # long-lived thread: fresh memo each cycle
         try:
             acc = compute_accuracy()
             if acc.get("aiRemaining", 0) > 0 or acc.get("warmPending", 0) > 0:
                 grade_ai_bg()   # newly-finished matches → grade; upcoming → pre-warm groq picks
         except Exception as e:
             print(f"[warn] accuracy warm: {e}")
+        try:
+            advancement_trend()   # warm the day-by-day advancement trend (heavy; cached by signature)
+        except Exception as e:
+            print(f"[warn] advtrend warm: {e}")
         time.sleep(240)
 
 
@@ -2451,6 +2556,20 @@ def _finished_signature():
         fin = sorted((str(m["id"]), (m.get("score") or {}).get("home"), (m.get("score") or {}).get("away"))
                      for m in get_matches().get("matches", [])
                      if m.get("status") == "FINISHED" and (m.get("score") or {}).get("home") is not None)
+        return hashlib.md5(json.dumps(fin).encode("utf-8")).hexdigest()
+    except Exception:
+        return ""
+
+
+def _group_stage_signature():
+    """Fingerprint of just the GROUP-STAGE finished results. Group-stage-only views (3rd-place
+    odds, the advancement race) depend on nothing else, so keying their cache on this keeps them
+    stable through the knockouts instead of recomputing every time a knockout match finishes."""
+    try:
+        fin = sorted((str(m["id"]), (m.get("score") or {}).get("home"), (m.get("score") or {}).get("away"))
+                     for m in get_matches().get("matches", [])
+                     if m.get("stage") == "GROUP_STAGE" and m.get("status") == "FINISHED"
+                     and (m.get("score") or {}).get("home") is not None)
         return hashlib.md5(json.dumps(fin).encode("utf-8")).hexdigest()
     except Exception:
         return ""
@@ -2504,22 +2623,31 @@ def _tune_samples():
     return samples
 
 
-def _score_params(samples, P):
+def _scoreline(eh, ea, host, fh, fa, P):
+    """Pre-kickoff expected goals (lh, la) and the modal scoreline (pH, pA) for the
+    Elo + home + form subset of the runtime model (computePrediction in worldcup.html).
+    The tuner scores params with THIS, then they are served by the JS runtime, so the two
+    must stay in lockstep — test_model_consistency.py asserts they agree."""
     A, TS, TC, K = P["avg"], P["tiltScale"], P["tiltCap"], P["formK"]
+    dr = 0.75 * (eh - ea) + 30 + (60 if host else 0)   # mirrors teamRating (elo w=6, home w=3) + host
+    tilt = max(-TC, min(TC, dr / TS))
+    atkh = (fh["gf"] + A * K) / (fh["p"] + K); dfnh = (fh["ga"] + A * K) / (fh["p"] + K)
+    atka = (fa["gf"] + A * K) / (fa["p"] + K); dfna = (fa["ga"] + A * K) / (fa["p"] + K)
+    lh = max(.2, ((atkh + dfna) / 2) * (1 + tilt)); la = max(.2, ((atka + dfnh) / 2) * (1 - tilt))
+    best = -1; pH = pA = 1
+    for i in range(7):
+        pi = math.exp(-lh) * lh ** i / math.factorial(i)
+        for j in range(7):
+            pr = pi * (math.exp(-la) * la ** j / math.factorial(j))
+            if pr > best + 1e-9 or (pr > best - 1e-9 and i + j > pH + pA):
+                best = pr if pr > best else best; pH, pA = i, j
+    return lh, la, pH, pA
+
+
+def _score_params(samples, P):
     oh = ex = 0; mae = 0.0; n = len(samples) or 1
     for eh, ea, fh, fa, host, sh, sa in samples:
-        dr = 0.75 * (eh - ea) + 30 + (60 if host else 0)   # mirrors teamRating (elo w=6, home w=3)
-        tilt = max(-TC, min(TC, dr / TS))
-        atkh = (fh["gf"] + A * K) / (fh["p"] + K); dfnh = (fh["ga"] + A * K) / (fh["p"] + K)
-        atka = (fa["gf"] + A * K) / (fa["p"] + K); dfna = (fa["ga"] + A * K) / (fa["p"] + K)
-        lh = max(.2, ((atkh + dfna) / 2) * (1 + tilt)); la = max(.2, ((atka + dfnh) / 2) * (1 - tilt))
-        best = -1; pH = pA = 1
-        for i in range(7):
-            pi = math.exp(-lh) * lh ** i / math.factorial(i)
-            for j in range(7):
-                pr = pi * (math.exp(-la) * la ** j / math.factorial(j))
-                if pr > best + 1e-9 or (pr > best - 1e-9 and i + j > pH + pA):
-                    best = pr if pr > best else best; pH, pA = i, j
+        _, _, pH, pA = _scoreline(eh, ea, host, fh, fa, P)
         po = "home" if pH > pA else "away" if pA > pH else "draw"
         ao = "home" if sh > sa else "away" if sa > sh else "draw"
         oh += po == ao; ex += pH == sh and pA == sa; mae += abs(pH - sh) + abs(pA - sa)
@@ -2629,6 +2757,31 @@ def _team_card_totals(year):
                 t["y"] += 1
     _write_cache(key, tot)
     return tot
+
+
+_cardtotals_warming = set()
+
+
+def _team_card_totals_nonblocking(year):
+    """Card totals without blocking the request: serve any cached value (even stale),
+    otherwise warm it in the background and return {} for now (fills on next refresh).
+    Prevents a cold Groups view from stalling on ~dozens of match-summary fetches."""
+    key = f"cardtotals-{year}"
+    cached, _ = _read_cache(key, 10 ** 9)          # accept any age
+    if cached is not None:
+        return cached
+    if year not in _cardtotals_warming:
+        _cardtotals_warming.add(year)
+
+        def run():
+            try:
+                _team_card_totals(year)
+            except Exception as e:
+                print(f"[warn] cardtotals warm {year}: {e}")
+            finally:
+                _cardtotals_warming.discard(year)
+        threading.Thread(target=run, daemon=True).start()
+    return {}
 
 
 def _team_goal_tally(name, year):
@@ -2990,6 +3143,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
+        _req_memo_clear()   # fresh per-request memo (this thread may serve keep-alive requests)
         path = urlparse(self.path).path
         if path in ("/", "/index.html", "/worldcup.html"):
             return self._file(HTML, "text/html; charset=utf-8")
@@ -3078,6 +3232,12 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 print(f"[warn] advodds: {e}")
                 return self._json(200, {})
+        if path == "/api/advtrend":
+            try:
+                return self._json(200, advancement_trend())
+            except Exception as e:
+                print(f"[warn] advtrend: {e}")
+                return self._json(200, {"teams": [], "boards": {}, "order": [], "labels": []})
         if path == "/api/match":
             q = parse_qs(urlparse(self.path).query)
             mid = (q.get("id") or [""])[0]
@@ -3137,6 +3297,7 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(404, {"error": "not found"})
 
     def do_POST(self):
+        _req_memo_clear()   # fresh per-request memo
         path = urlparse(self.path).path
         if path == "/api/grade-ai":
             started = grade_ai_bg()
@@ -3149,8 +3310,6 @@ class Handler(BaseHTTPRequestHandler):
                        lambda: get_standings_espn(season, ttl=0)):
                 try:
                     fn()
-                    # In-memory caches need to be cleared after a forced refresh
-                    _read_cache.cache_clear()
                 except Exception as e:
                     print(f"[warn] refresh revalidate: {e}")
             try:
@@ -3171,8 +3330,32 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(404, {"error": "not found"})
 
 
+def seed_cache():
+    """Copy committed results from dist/cache into the writable runtime cache if missing:
+    AI picks (can't be re-fetched), model picks, and the finished-match computations
+    (accuracy, 3rd-place odds, the advancement race). Lets a fresh cache load them instantly
+    instead of recomputing — the Accuracy/Groups tabs would otherwise come up empty or stall."""
+    src = os.path.join(ROOT, "dist", "cache")
+    if not os.path.isdir(src) or os.path.abspath(src) == os.path.abspath(CACHE_DIR):
+        return
+    os.makedirs(CACHE_DIR, exist_ok=True)
+    import shutil
+    keep = lambda fn: fn.endswith(".json") and (
+        fn.startswith(("aipick-", "modelpick-")) or fn in ("advtrend.json", "advodds.json", "accuracy.json"))
+    n = 0
+    for fn in os.listdir(src):
+        if keep(fn) and not os.path.exists(os.path.join(CACHE_DIR, fn)):
+            try:
+                shutil.copy2(os.path.join(src, fn), os.path.join(CACHE_DIR, fn)); n += 1
+            except OSError:
+                pass
+    if n:
+        print(f"[info] seeded {n} cached results from dist/cache")
+
+
 def main():
     os.makedirs(CACHE_DIR, exist_ok=True)
+    seed_cache()
     host, port = "127.0.0.1", 8770
     httpd = ThreadingHTTPServer((host, port), Handler)
     print(f"World Cup Pilot server on http://{host}:{port}  (token_set={token_ok()})")

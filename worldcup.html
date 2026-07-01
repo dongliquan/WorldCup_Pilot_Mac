@@ -372,6 +372,7 @@
   .center .cinner { position: relative; display: inline-flex; align-items: center; justify-content: center; }
   .center .cinner .pill { position: absolute; left: calc(100% + 8px); top: 50%; transform: translateY(-50%); }
   .center .sc { font-family: var(--mono); font-weight: 800; font-size: 20px; letter-spacing: .04em; }
+  .center .sc .pen { font-size: 12px; font-weight: 700; color: var(--live); letter-spacing: 0; }   /* PK tally */
   .center .vs { font-family: var(--mono); font-weight: 700; font-size: 14px; color: var(--mute); }
   .pill {
     font-size: 9.5px; font-weight: 800; letter-spacing: .08em; padding: 2px 8px; border-radius: 999px;
@@ -520,6 +521,16 @@
     text-transform: uppercase; }
   .tl-seg-events { display: flex; gap: 10px; align-items: flex-start; min-height: 80px; }
   .tl-seg-empty { color: var(--mute); opacity: .4; font-size: 11px; align-self: center; }
+  /* penalty shootout: per-kick O (scored) / X (missed) in order, with the tally */
+  .tl-pk .tl-seg-events { flex-direction: column; gap: 8px; justify-content: center; align-items: flex-start; }
+  .pk-line { display: flex; align-items: center; gap: 8px; opacity: .9; }
+  .pk-line.pk-win { opacity: 1; }
+  .pk-marks { display: inline-flex; gap: 3px; }
+  .pk-k { font-family: var(--mono); font-weight: 800; font-size: 13px; min-width: 13px; text-align: center; cursor: default; }
+  .pk-k.ok { color: var(--live); }                       /* O = scored */
+  .pk-k.no { color: var(--neg, #e5594f); opacity: .7; }  /* X = missed */
+  .pk-n { font-family: var(--mono); font-size: 16px; font-weight: 800; color: var(--mute); margin-left: 4px; }
+  .pk-line.pk-win .pk-n { color: var(--live); }
   .tl-h-scroll::-webkit-scrollbar { height: 8px; }
   .tl-h-scroll::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 5px; }
   .tle { flex: 0 0 auto; width: 116px; background: var(--glass); border: 1px solid var(--line);
@@ -615,11 +626,32 @@
   /* ===== knockout bracket ===== */
   .bracket { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; padding: 10px 4px 40px;
     scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+  /* doesn't fit wide → stack the two Semifinal subtrees (each a 4-col mini-tree, R32→SF) on the
+     left, with the Final on the right at vertical centre — both semis converge into it. */
+  .bracket.split { flex-direction: row; align-items: center; overflow-x: auto; gap: 22px;
+    scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+  .br-stack { display: flex; flex-direction: column; min-width: 0; }
+  .br-half { display: flex; gap: 12px; align-items: stretch; }
+  .br-half + .br-half { margin-top: 44px; padding-top: 44px; border-top: 1px dashed var(--line); }  /* gap between SF1 / SF2 */
+  .br-mid { display: flex; flex-direction: row; align-items: center; gap: 22px; flex: 0 0 auto;
+    padding-left: 20px; border-left: 1px dashed var(--line); }   /* 3rd-place left, final right */
+  .br-mid .br-center, .br-mid .br-third { flex: 0 0 auto; }
+  .br-third .br-rnd.third { margin-top: 0; }                        /* spacing comes from the container gap */
+  .br-fbig { min-width: 248px; }                                    /* final stands out — larger */
+  .br-fbig .br-rnd { font-size: 13px; }
+  .br-fbig .br-match { padding: 12px 14px; }
+  .br-fbig .br-nm { font-size: 15px; }
+  .br-fbig .br-sc { font-size: 16px; }
+  .br-fbig .br-team img { width: 26px; height: 18px; }
+  .br-fbig .br-meta { font-size: 11px; }
   .bracket::-webkit-scrollbar { height: 9px; }
   .bracket::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 5px; }
-  .br-col { display: flex; flex-direction: column; justify-content: space-around; gap: 8px;
-    min-width: 156px; flex: 1 1 0; }
-  .br-center { min-width: 190px; justify-content: center; gap: 12px; }
+  .br-col { display: flex; flex-direction: column; min-width: 156px; flex: 1 1 0; }
+  .br-col-body { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column;
+    justify-content: space-around; gap: 8px; }   /* matches spread evenly → round N centers on its pair */
+  .br-center, .br-third { display: flex; flex-direction: column; justify-content: center; gap: 12px; min-width: 190px; }
+  .br-cwrap { justify-content: center; align-items: center; gap: 18px; min-width: 248px; }   /* wide-mode centre column */
+  .br-match { min-height: 58px; box-sizing: border-box; }   /* uniform height so feeders line up cleanly */
   .br-rnd { font-size: 11px; font-weight: 800; color: var(--gold); text-align: center;
     letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; }
   .br-rnd.third { margin-top: 18px; color: var(--mute); }
@@ -631,6 +663,7 @@
   .br-team img { width: 22px; height: 15px; object-fit: cover; border-radius: 3px; flex: 0 0 auto; }
   .br-nm { flex: 1 1 auto; font-size: 12.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .br-sc { font-family: var(--mono); font-weight: 800; font-size: 13px; color: var(--gold-soft); }
+  .br-pk { font-size: 10px; font-weight: 700; color: var(--live); }   /* penalty-shootout tally */
   .br-meta { font-size: 9.5px; color: var(--mute); text-align: center; margin-top: 4px; }
   .br-center .br-match { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold) inset;
     background: linear-gradient(180deg, rgba(233,196,106,.12), var(--glass)); }
@@ -674,19 +707,6 @@
   table.stand tr.elim { opacity: .7; }
   table.stand tr.elim td.pos { box-shadow: inset 3px 0 0 var(--text); }   /* black bar = eliminated */
   .elim-tag { margin-left: 6px; font-size: 9px; font-weight: 800; color: #ef4444; }
-  .thirds { max-width: 760px; margin: 18px auto 0; }
-  .thirds-t td.tg { font-family: var(--mono); color: var(--gold-soft); font-weight: 700; }
-  .thirds-t td.tcd { font-size: 10px; white-space: nowrap; }
-  .thirds-t td.tpr { font-family: var(--mono); font-weight: 800; color: #e9b84a; }
-  .thirds-t td.tpp { font-family: var(--mono); font-size: 11px; color: var(--mute); }
-  .thirds-t td.tpp3, .thirds-t th.tpp3 { color: var(--text);
-    border-left: 1px solid var(--border); border-right: 1px solid var(--border); }  /* 3rd-place = the focus, flanked by dividers */
-  .thirds-t td.p3full { font-weight: 800; }                        /* only 3rd = 100% is bold */
-  .thirds-t td.tppx { color: #ef4444; }                            /* 4th = out */
-  .thirds-note { max-width: 720px; margin: 6px auto 0; font-size: 10px; color: var(--mute); text-align: center; }
-  .thirds-t td.tfx { font-size: 10px; font-weight: 700; }
-  .thirds-t td.tfx.fx { color: var(--gold-soft); }
-  .thirds-t td.tfx.pv { color: var(--mute); }
   table.stand td.gkey { font-weight: 800; color: var(--text); }   /* W, GF — key for advancement scenarios */
   table.stand th.gkey { color: var(--gold-soft); }
   table.stand tr.qual td.pos { box-shadow: inset 3px 0 0 #34c759; }    /* top 2 → auto advance */
@@ -784,6 +804,7 @@
   .fx-tm.fx-me { color: var(--text); }                              /* the team being viewed */
   .fx-tm.fx-win .fx-nm { color: var(--gold-soft); font-weight: 800; }   /* winner */
   .fx-sc { font-family: var(--mono); font-weight: 800; color: var(--gold-soft); flex: 0 0 auto; min-width: 44px; text-align: center; }
+  .fx-pk { font-size: 10px; font-weight: 700; color: var(--live); }   /* penalty-shootout tally */
   .fx-sc.fx-time { color: var(--mute); font-weight: 700; }
   .fx-sch { font-size: 10px; color: var(--mute); flex: 0 0 auto; }
   .modal .close {
@@ -972,6 +993,74 @@
   .gmini-t .gmnx { color: var(--mute); }
   .gmini-t .gmlock { font-size: 9px; }
   .gmini-t .gmcd { font-size: 10px; white-space: nowrap; }
+
+  /* ===== advancement-trend (Groups tab: day-by-day R32 race + wildcard bingo) ===== */
+  .advt-wrap { max-width: 1500px; margin: 30px auto 0; }
+  .advt-head { font-size: 18px; font-weight: 800; color: var(--text); margin-bottom: 4px; }
+  .advt-sub { color: var(--dim); font-size: 13px; margin-bottom: 14px; max-width: 72ch; }
+  .advt-load { display: flex; gap: 8px; align-items: center; justify-content: center; color: var(--mute); padding: 30px 0; }
+  /* layout: country selector | chart | bingo (left → right) */
+  .advt-deck3 { display: grid; grid-template-columns: 364px minmax(0,1fr) 320px; gap: 14px; align-items: start; margin-top: 4px; }
+  @media (max-width: 1180px) { .advt-deck3 { grid-template-columns: 340px minmax(0,1fr); } .advt-bingo-card { grid-column: 1 / -1; } }
+  @media (max-width: 760px) { .advt-deck3 { grid-template-columns: 1fr; } .advt-bingo-card { grid-column: auto; } }
+  .advt-sel-col { display: flex; flex-direction: column; overflow: hidden;
+    border: 1px solid var(--line); border-radius: 14px; padding: 12px; background: var(--glass); }
+  .advt-tbl-wrap { flex: 1; min-height: 0; overflow: auto; }
+  .advt-ctrl { display: flex; align-items: center; gap: 8px; padding-top: 8px; }
+  .advt-replay { cursor: pointer; background: var(--glass); border: 1px solid var(--line-2); color: var(--dim);
+    width: 24px; height: 22px; border-radius: 7px; font-size: 13px; display: grid; place-items: center;
+    transition: .15s; flex: none; font-family: inherit; }
+  .advt-replay:hover { color: var(--text); border-color: var(--gold); }
+  .advt-prog { flex: 1; height: 5px; background: var(--line); border-radius: 999px; position: relative; cursor: pointer; touch-action: none; }
+  .advt-prog:focus-visible { outline: 2px solid var(--gold); outline-offset: 4px; }
+  .advt-prog-fill { height: 100%; width: 0%; background: var(--gold); border-radius: 999px; position: relative; }
+  .advt-prog-fill::after { content: ""; position: absolute; right: -6px; top: 50%; transform: translateY(-50%);
+    width: 12px; height: 12px; border-radius: 50%; background: var(--gold); border: 2px solid var(--bg); box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+  .advt-tbl { width: 100%; border-collapse: collapse; }
+  .advt-tbl th { font-size: 10px; color: var(--mute); font-weight: 600; text-align: left; padding: 5px 6px;
+    border-bottom: 1px solid var(--line-2); position: sticky; top: 0; background: var(--bg); z-index: 2; }
+  .advt-tbl td { padding: 5px 6px; border-bottom: 1px solid var(--line); font-size: 12px; }
+  .advt-row { cursor: pointer; }
+  .advt-row.zone td { background: rgba(52,199,89,.09); }   /* positions 1–8 = advancing zone */
+  .advt-row.zone.cut8 td { box-shadow: inset 0 -2px 0 rgba(52,199,89,.5); }
+  .advt-row:hover td { background: var(--glass-2); }
+  .advt-row.sel td { background: var(--glass-2); }
+  .advt-row.sel td.pos { box-shadow: inset 3px 0 0 var(--gold); }
+  .advt-row .pos { color: var(--mute); font-family: var(--mono); white-space: nowrap; }
+  .advt-gchip { font-size: 10px; font-weight: 800; padding: 1px 6px; border-radius: 5px; white-space: nowrap; }
+  .advt-row .tnm { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+  .advt-row .tnm span { overflow-wrap: anywhere; }
+  .advt-row .tpr { font-weight: 800; font-family: var(--mono); text-align: right; }
+  .advt-row.adv .tpr { color: #34c759; } .advt-row.out .tpr { color: #ef4444; }
+  .advt-tbl .tnum { font-family: var(--mono); text-align: center; color: var(--dim); white-space: nowrap; }
+  .advt-flag { width: 26px; height: 18px; object-fit: cover; border-radius: 3px; flex: none; }
+  .advt-flag.sm { width: 22px; height: 15px; }
+  .advt-metanote { font-size: 12px; color: var(--mute); margin: 12px 0 0; }
+  .advt-card { border: 1px solid var(--line); border-radius: 14px; padding: 14px; background: var(--glass); display: flex; flex-direction: column; }
+  .advt-kick { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px;
+    color: var(--mute); margin-bottom: 8px; font-weight: 700; gap: 8px; }
+  .advt-kick #advtSel, .advt-kick #advtBingoT { color: var(--text); }
+  .advt-day { color: var(--gold); font-family: var(--mono); }
+  .advt-chart { width: 100%; height: auto; display: block; }
+  .advt-dot { stroke: var(--bg); stroke-width: 2; }
+  .advt-bigrow { display: flex; align-items: baseline; gap: 14px; margin-top: 6px; justify-content: space-between; }
+  .advt-big { font-weight: 800; font-size: 40px; line-height: 1; font-family: var(--mono); }
+  .advt-big small { font-size: .34em; color: var(--mute); }
+  .advt-stat { font-size: 12.5px; font-weight: 700; padding: 5px 10px; border: 1px solid currentColor; border-radius: 8px; }
+  .advt-fav { font-weight: 800; font-family: var(--mono); color: #34c759; }
+  .advt-bingo { display: grid; grid-template-columns: repeat(3,1fr); gap: 7px; }
+  @media (max-width: 420px) { .advt-bingo { grid-template-columns: repeat(2,1fr); } }
+  .advt-bc { border: 1px solid var(--line); border-radius: 9px; padding: 8px; min-height: 76px;
+    display: flex; flex-direction: column; gap: 3px; position: relative; background: var(--glass); }
+  .advt-bc .g { font-size: 9px; font-weight: 800; letter-spacing: .04em; align-self: flex-start; padding: 1px 6px; border-radius: 5px; }
+  .advt-bc .m { position: absolute; top: 7px; right: 9px; font-weight: 800; font-family: var(--mono); }
+  .advt-bc .n { font-weight: 700; font-size: 11.5px; line-height: 1.18; overflow-wrap: anywhere; }
+  .advt-bc .n .advt-flag { vertical-align: -3px; margin-right: 5px; }
+  .advt-bc .l { font-size: 10px; color: var(--mute); font-family: var(--mono); }
+  .advt-bc.fav { border-color: rgba(52,199,89,.45); } .advt-bc.fav .m { color: #34c759; }
+  .advt-bc.risk { border-color: rgba(239,68,68,.4); } .advt-bc.risk .m { color: #ef4444; }
+  .advt-bc.own { border-color: var(--gold); } .advt-bc.own .m { color: var(--gold); }
+  .advt-bc.nodata { opacity: .5; }
 </style>
 </head>
 <body>
@@ -1046,10 +1135,10 @@ const edLogo = () => { const e = document.getElementById("edEmblem"); return (e 
 // route remote photos through the local image cache (download once, served from disk)
 const imgUrl = u => (u && /^https?:/.test(u)) ? "/img?u="+encodeURIComponent(u) : (u||"");
 const I18N = {
- en:{loading:"Loading…",loadingYear:"Loading {y}…",loadFail:"Failed to load",teamLoading:"Loading team…",teamFail:"Couldn't load team info.<br>Please try again.",close:"Close",standingsLoading:"Loading standings…",noStandings:"No standings data",noMatchesDay:"No matches on this day",noSchedule:"No matches",matches:"{n} matches",expandAll:"Expand all",collapseAll:"Collapse all",bracketPending:"The knockout bracket is set after the group stage",matchLoading:"Loading match info…",matchFail:"Couldn't load info",noEventsYet:"No events recorded yet",noMatchDetail:"Match details not found",events:"Events",eventsHint:"← match time →",noRecord:"none",highlight:"Highlight",playGoal:"Play goal highlight",schedule:"Schedule",groups:"Groups",bracket:"Bracket",tabAccuracy:"Accuracy",accPredictor:"Predictor",accOutcome:"Outcome",accExact:"Exact score",accGradeAI:"Grade AI picks",accGrading:"Grading…",accNote:"Outcome = winner correct. AI picks (Gemini/ChatGPT) count only matches already graded — tap 'Grade AI picks' to fill the rest.",accNoData:"No finished matches yet",accByRound:"By round",roundN:"Round {n}",localTime:"Local time",tzHint:"Checked: venue local time / Unchecked: KST",editionTitle:"World Cup edition",themeChange:"Change theme",toDark:"Switch to dark mode",toLight:"Switch to light mode",refresh:"Refresh",alertOn:"Turn off alerts",alertOff:"Get alerts",alertMatch:"Get match alerts",saved:"Saved",saving:"Saving…",champion:"Champion",runnerUp:"Runner-up",third:"3rd",goalsN:"({n} goals)",final:"Final",opening:"Opening Ceremony",finalFull:"Final (full)",finalHl:"Final H/L",live:"LIVE",finished:"FT",liveHT:"HT",liveET:"ET",tbd:"TBD",thirdPlace:"3rd place",st32:"Round of 32",st16:"Round of 16",stQF:"Quarter-finals",stSF:"Semi-finals",capacity:"Capacity",seatsUnit:"",surface:"Surface",attendance:"Attendance",temp:"Temp",humidity:"Humidity",odds:"Odds",home:"Home",draw:"Draw",away:"Away",firstHalf:"1st",secondHalf:"2nd",extra:"ET",thTeam:"Team",thP:"P",thW:"W",thD:"D",thL:"L",thGD:"GD",thPts:"Pts",continent:"Confederation",capital:"Capital",population:"Population",popUnit:"",area:"Area",founded:"Founded",wcHistory:"World Cup history",scheduleTitle:"Schedule",squad:"Squad",coach:"Coach",apps:"Appearances",other:"Other",bestResult:"Best result",timesN:"{n}",appsN:"{n}",youngest:"Youngest",oldest:"Oldest",unavail:"Out",injured:"Injured",club:"Club",lookup:"Looking up…",position:"Position",wcGoals:"Goals (this WC)",wcGoalsAll:"Goals (all WCs)",cardYellow:"Yellow cards",cardRed:"Red cards",number:"No.",ageL:"Age",birthday:"Birthday",height:"Height",weight:"Weight",birthplace:"Birthplace",outOfSquad:"Unavailable",ageN:"{n}",upcoming:"Upcoming",groupN:"Group {g}",tieNote:"Pts · GD · GF · head-to-head",advCol:"R32",advAuto:"Through",advPo:"3rd✓",adv3In:"3rd ✓",adv3Out:"3rd ✗",thWDL:"W D L",thGFGA:"GF:GA",thNext:"Next",clinched:"Clinched",thGF:"GF",thGA:"GA",thGGG:"GF GA GD",thCard:"Cards",provisional:"provisional",eliminated:"Out",fixed:"Fixed",thFixed:"Status",thirdRule:"Round of 32 = top 2 of each group + the 8 best 3rd-placed teams. 3rd-place ranking (FIFA):",thirdsTitle:"R32 contenders (excl. qualified & eliminated)",thirdsNote:"Top 2 = auto-advance · 3rd = 8 best go through · 4th = out. Recomputed when a match finishes.",advFormat:"Round of 32 = top 2 of each group + the 8 best 3rd-placed teams.",rankGroupTitle:"① Within-Group Ranking — same group → head-to-head applies (FIFA 2026):",rankThirdTitle:"② Cross-Group 3rd-Place Ranking — different groups → no head-to-head:",groupStage:"Group stage",debut:"Debut",place4:"4th",unbeaten:"unbeaten",zaire:"Zaire",appPredict:"Elo x Score",predicting:"Analyzing…",factorForm:"Form",factorInj:"Injuries",factorCards:"Cards",factorPts:"Points",factorGd:"GoalDiff",factorHome:"Home",predNote:"From FIFA ranking + this tournament's form, injuries & cards",today:"TODAY",oddsRef:"Betting odds (ESPN)",predScore:"Likely score",claudePick:"Claude's pick",cDiffer:"differs from model",cReasonEven:"Too close to call — a slight edge.",cReasonStar:"{who} is in red-hot form.",cReasonPower:"Tournament pedigree in the big games.",cReasonForm:"Riding strong momentum.",cReasonHome:"Home advantage tips it.",cReasonStrength:"The stronger, deeper side.",cConfLbl:"win prob",cConfHint:"The model's estimated probability this pick is correct",aiNoKey:"Add {k} to config.json to enable",aiFail:"Couldn't reach the model",aiQuota:"Rate/usage limit — auto-retry shortly",wind:"Wind",alt:"Altitude",lineup:"Lineup",predLineup:"Predicted XI",predLineupNote:"estimate — out injured/suspended players, shape vs opponent",lineupOut:"Unavailable",suspended:"Suspended",startingXI:"Starting XI",subs:"Substitutes",strength:"Strength",keyPlayers:"Top scorers",reset:"Reset",calibration:"Calibration",notifKickoff:"⚽ Kickoff",notifGoal:"⚽ Goal!",notifGoalBy:"⚽ {who} — Goal!",notifFT:"🏁 Full time"},
- ko:{loading:"불러오는 중…",loadingYear:"{y} 불러오는 중…",loadFail:"불러오기 실패",teamLoading:"팀 정보 불러오는 중…",teamFail:"팀 정보를 불러오지 못했습니다.<br>잠시 후 다시 시도해 주세요.",close:"닫기",standingsLoading:"조별 순위 불러오는 중…",noStandings:"조별 순위 데이터가 없습니다",noMatchesDay:"이 날짜에 경기가 없습니다",noSchedule:"경기 일정이 없습니다",matches:"{n} 경기",expandAll:"전경기 펼치기",collapseAll:"전경기 접기",bracketPending:"토너먼트 대진은 조별리그 종료 후 확정됩니다",matchLoading:"경기 정보 불러오는 중…",matchFail:"정보를 불러올 수 없습니다",noEventsYet:"아직 기록된 이벤트가 없습니다",noMatchDetail:"이 경기의 상세 정보를 찾지 못했습니다",events:"이벤트",eventsHint:"← 경기 시간 →",noRecord:"기록 없음",highlight:"하이라이트",playGoal:"골 하이라이트 재생",schedule:"일정",groups:"조별",bracket:"대진표",tabAccuracy:"예측성적",accPredictor:"예측기",accOutcome:"승부 적중",accExact:"정확 스코어",accGradeAI:"AI 채점",accGrading:"채점 중…",accNote:"승부 적중 = 승자 맞춤. AI(Gemini/ChatGPT)는 이미 채점된 경기만 집계됩니다 — 'AI 채점'을 누르면 나머지를 채웁니다.",accNoData:"아직 종료된 경기가 없습니다",accByRound:"차수별 결과",roundN:"{n}차전",localTime:"현지시간",tzHint:"체크: 경기장 현지시간 / 해제: 한국시간",editionTitle:"월드컵 회차",themeChange:"테마 변경",toDark:"다크 모드로 전환",toLight:"라이트 모드로 전환",refresh:"새로고침",alertOn:"알림 끄기",alertOff:"알림 받기",alertMatch:"경기 알림 받기",saved:"저장됨",saving:"저장 중…",champion:"우승",runnerUp:"준우승",third:"3위",goalsN:"({n}골)",final:"결승",opening:"개막식",finalFull:"결승 풀경기",finalHl:"결승 H/L",live:"LIVE",finished:"종료",liveHT:"하프타임",liveET:"연장",tbd:"미정",thirdPlace:"3·4위전",st32:"32강",st16:"16강",stQF:"8강",stSF:"4강",capacity:"수용인원",seatsUnit:"석",surface:"표면",attendance:"관중",temp:"온도",humidity:"습도",odds:"배당",home:"홈",draw:"무",away:"원정",firstHalf:"전반",secondHalf:"후반",extra:"연장",thTeam:"팀",thP:"경기",thW:"승",thD:"무",thL:"패",thGD:"득실",thPts:"승점",continent:"대륙",capital:"수도",population:"인구",popUnit:"명",area:"면적",founded:"협회창설",wcHistory:"월드컵 역대 성적",scheduleTitle:"일정",squad:"선수단",coach:"감독",apps:"본선 출전",other:"그 외",bestResult:"최고 성적",timesN:"{n}회",appsN:"{n}회",youngest:"최연소",oldest:"최고령",unavail:"출전불가",injured:"부상",club:"소속팀",lookup:"조회 중…",position:"포지션",wcGoals:"이번 월드컵 득점",wcGoalsAll:"통산 월드컵 득점",cardYellow:"경고(옐로)",cardRed:"퇴장(레드)",number:"등번호",ageL:"나이",birthday:"생일",height:"신장",weight:"체중",birthplace:"출생지",outOfSquad:"출전 불가",ageN:"{n}세",upcoming:"예정",groupN:"{g}조",tieNote:"승점·득실·다득점·승자승 순",advCol:"32강",advAuto:"진출",advPo:"진출권",adv3In:"3위 진출권",adv3Out:"3위 탈락권",thWDL:"승무패",thGFGA:"득실점",thNext:"다음",clinched:"진출확정",thGF:"득점",thGA:"실점",thGGG:"득실차",thCard:"카드",provisional:"잠정",eliminated:"탈락",fixed:"확정",thFixed:"확정",thirdRule:"32강 = 각 조 1·2위 + 3위 중 상위 8팀. 3위 순위(FIFA):",thirdsTitle:"32강 진출 경쟁 (확정·탈락 제외, 확률순)",thirdsNote:"1·2위 = 자동진출 · 3위 = 상위 8팀 진출 · 4위 = 탈락. 경기가 끝날 때마다 재계산.",advFormat:"32강 = 각 조 1·2위 + 3위 중 상위 8팀.",rankGroupTitle:"① 조내 순위 — 같은 조 → 승자승 적용 (FIFA 2026):",rankThirdTitle:"② 조간 3위 — 다른 조 → 승자승 없음:",groupStage:"조별리그",debut:"첫 출전",place4:"4위",unbeaten:"무패",zaire:"자이르",appPredict:"Elo x Score",predicting:"분석 중…",factorForm:"최근",factorInj:"부상",factorCards:"카드",factorPts:"승점",factorGd:"득실",factorHome:"홈",predNote:"FIFA 랭킹 + 이번 대회 성적·부상·카드 종합",today:"오늘",oddsRef:"베팅 배당 (ESPN)",predScore:"예상 스코어",claudePick:"Claude 예측",cDiffer:"모델과 다른 의견",cReasonEven:"막상막하 — 근소한 우위.",cReasonStar:"{who}의 폼이 절정.",cReasonPower:"빅매치에 강한 전통 강호.",cReasonForm:"상승세를 타고 있음.",cReasonHome:"홈 이점이 승부를 가른다.",cReasonStrength:"전력·뎁스에서 우위.",cConfLbl:"적중확률",cConfHint:"이 픽이 맞을 것으로 모델이 추정한 확률",aiNoKey:"config.json에 {k} 추가하면 활성화",aiFail:"모델 호출 실패",aiQuota:"요청 한도 초과 (잠시 후 자동 재시도)",wind:"풍속",alt:"고도",lineup:"라인업",predLineup:"예상 라인업",predLineupNote:"추정 — 부상·출장정지 제외, 상대 맞춤 포메이션",lineupOut:"결장",suspended:"출장정지",startingXI:"선발",subs:"교체",strength:"강도",keyPlayers:"주요 득점",reset:"초기화",calibration:"보정",notifKickoff:"⚽ 경기 시작",notifGoal:"⚽ 골!",notifGoalBy:"⚽ {who} 골!",notifFT:"🏁 경기 종료"},
- zh:{loading:"加载中…",loadingYear:"加载 {y}…",loadFail:"加载失败",teamLoading:"加载球队…",teamFail:"无法加载球队信息。<br>请稍后重试。",close:"关闭",standingsLoading:"加载排名…",noStandings:"暂无排名数据",noMatchesDay:"当天没有比赛",noSchedule:"暂无赛程",matches:"{n} 场",expandAll:"展开全部",collapseAll:"收起全部",bracketPending:"淘汰赛对阵将在小组赛结束后确定",matchLoading:"加载比赛信息…",matchFail:"无法加载信息",noEventsYet:"暂无事件记录",noMatchDetail:"未找到该场比赛详情",events:"事件",eventsHint:"← 比赛时间 →",noRecord:"无记录",highlight:"集锦",playGoal:"播放进球集锦",schedule:"赛程",groups:"小组",bracket:"对阵表",tabAccuracy:"预测战绩",accPredictor:"预测器",accOutcome:"胜负命中",accExact:"精确比分",accGradeAI:"AI 评分",accGrading:"评分中…",accNote:"胜负命中=猜对胜方。AI(Gemini/ChatGPT)仅统计已评分的比赛 — 点击'AI 评分'补全其余。",accNoData:"暂无已结束的比赛",accByRound:"分轮次",roundN:"第{n}轮",localTime:"当地时间",tzHint:"勾选：球场当地时间 / 取消：韩国时间",editionTitle:"世界杯届次",themeChange:"切换主题",toDark:"切换到深色模式",toLight:"切换到浅色模式",refresh:"刷新",alertOn:"关闭提醒",alertOff:"开启提醒",alertMatch:"开启比赛提醒",saved:"已保存",saving:"保存中…",champion:"冠军",runnerUp:"亚军",third:"季军",goalsN:"({n}球)",final:"决赛",opening:"开幕式",finalFull:"决赛全场",finalHl:"决赛集锦",live:"LIVE",finished:"完场",liveHT:"中场",liveET:"加时",tbd:"待定",thirdPlace:"三四名决赛",st32:"32强",st16:"16强",stQF:"8强",stSF:"4强",capacity:"容量",seatsUnit:"座",surface:"场地",attendance:"观众",temp:"气温",humidity:"湿度",odds:"赔率",home:"主",draw:"平",away:"客",firstHalf:"上半场",secondHalf:"下半场",extra:"加时",thTeam:"球队",thP:"场",thW:"胜",thD:"平",thL:"负",thGD:"净胜",thPts:"积分",continent:"大洲",capital:"首都",population:"人口",popUnit:"人",area:"面积",founded:"成立",wcHistory:"世界杯历史战绩",scheduleTitle:"赛程",squad:"球员名单",coach:"主教练",apps:"参赛次数",other:"其他",bestResult:"最佳成绩",timesN:"{n}次",appsN:"{n}次",youngest:"最年轻",oldest:"最年长",unavail:"不可出场",injured:"伤病",club:"所属球队",lookup:"查询中…",position:"位置",wcGoals:"本届进球",wcGoalsAll:"世界杯总进球",cardYellow:"黄牌",cardRed:"红牌",number:"号码",ageL:"年龄",birthday:"生日",height:"身高",weight:"体重",birthplace:"出生地",outOfSquad:"无法出场",ageN:"{n}岁",upcoming:"未赛",groupN:"{g}组",tieNote:"积分·净胜·进球·相互成绩",advCol:"32强",advAuto:"晋级",advPo:"或晋级",adv3In:"第3晋级",adv3Out:"第3出局",thWDL:"胜平负",thGFGA:"进:失",thNext:"下轮",clinched:"已晋级",thGF:"进球",thGA:"失球",thGGG:"进失净",thCard:"牌",provisional:"暂定",eliminated:"出局",fixed:"已定",thFixed:"状态",thirdRule:"32强 = 各组前2 + 8个最佳第3名。第3名排名(FIFA)：",thirdsTitle:"32强争夺 (除已晋级与出局)",thirdsNote:"前2 = 自动晋级 · 第3 = 最佳8队晋级 · 第4 = 出局。每场比赛结束后重算。",advFormat:"32强 = 各组前2 + 8个最佳第3名。",rankGroupTitle:"① 组内排名 — 同组 → 用相互对战 (FIFA 2026):",rankThirdTitle:"② 跨组第3名排名 — 不同组 → 无相互对战:",groupStage:"小组赛",debut:"首次参赛",place4:"第4名",unbeaten:"不败",zaire:"扎伊尔",appPredict:"Elo x Score",predicting:"分析中…",factorForm:"状态",factorInj:"伤病",factorCards:"牌",factorPts:"积分",factorGd:"净胜",factorHome:"主场",predNote:"综合 FIFA 排名 + 本届成绩·伤病·红黄牌",today:"今天",oddsRef:"博彩赔率 (ESPN)",predScore:"预测比分",claudePick:"Claude 预测",cDiffer:"与模型不同",cReasonEven:"势均力敌 — 略占上风。",cReasonStar:"{who} 状态火热。",cReasonPower:"大赛底蕴深厚。",cReasonForm:"势头正旺。",cReasonHome:"主场优势占先。",cReasonStrength:"实力与厚度更胜一筹。",cConfLbl:"命中概率",cConfHint:"模型估计该预测正确的概率",aiNoKey:"在 config.json 添加 {k} 即可启用",aiFail:"无法连接模型",aiQuota:"请求超限 (稍后自动重试)",wind:"风速",alt:"海拔",lineup:"阵容",predLineup:"预测阵容",predLineupNote:"预估 — 已排除伤停球员，按对手调整阵型",lineupOut:"缺阵",suspended:"停赛",startingXI:"首发",subs:"替补",strength:"实力",keyPlayers:"主要射手",reset:"重置",calibration:"校准",notifKickoff:"⚽ 开球",notifGoal:"⚽ 进球！",notifGoalBy:"⚽ {who} 进球！",notifFT:"🏁 完场"},
- ja:{loading:"読み込み中…",loadingYear:"{y} を読み込み中…",loadFail:"読み込み失敗",teamLoading:"チーム情報を読み込み中…",teamFail:"チーム情報を読み込めませんでした。<br>後ほど再試行してください。",close:"閉じる",standingsLoading:"順位を読み込み中…",noStandings:"順位データがありません",noMatchesDay:"この日は試合がありません",noSchedule:"試合がありません",matches:"{n} 試合",expandAll:"全試合を展開",collapseAll:"全試合を折りたたむ",bracketPending:"決勝トーナメントの組み合わせはグループステージ終了後に確定します",matchLoading:"試合情報を読み込み中…",matchFail:"情報を読み込めません",noEventsYet:"まだイベントの記録がありません",noMatchDetail:"この試合の詳細が見つかりません",events:"イベント",eventsHint:"← 試合時間 →",noRecord:"記録なし",highlight:"ハイライト",playGoal:"ゴールハイライト再生",schedule:"日程",groups:"グループ",bracket:"トーナメント",tabAccuracy:"予測成績",accPredictor:"予測者",accOutcome:"勝敗的中",accExact:"スコア的中",accGradeAI:"AI採点",accGrading:"採点中…",accNote:"勝敗的中=勝者を当てた。AI(Gemini/ChatGPT)は採点済みの試合のみ集計 — 「AI採点」で残りを補完。",accNoData:"まだ終了した試合がありません",accByRound:"節別の結果",roundN:"第{n}節",localTime:"現地時間",tzHint:"チェック：会場の現地時間 / 解除：韓国時間",editionTitle:"ワールドカップ大会",themeChange:"テーマ変更",toDark:"ダークモードに切替",toLight:"ライトモードに切替",refresh:"更新",alertOn:"通知オフ",alertOff:"通知オン",alertMatch:"試合通知を受け取る",saved:"保存済み",saving:"保存中…",champion:"優勝",runnerUp:"準優勝",third:"3位",goalsN:"({n}点)",final:"決勝",opening:"開会式",finalFull:"決勝フル",finalHl:"決勝H/L",live:"LIVE",finished:"終了",liveHT:"ハーフタイム",liveET:"延長",tbd:"未定",thirdPlace:"3位決定戦",st32:"ベスト32",st16:"ベスト16",stQF:"準々決勝",stSF:"準決勝",capacity:"収容人数",seatsUnit:"席",surface:"ピッチ",attendance:"観客",temp:"気温",humidity:"湿度",odds:"オッズ",home:"ホーム",draw:"分",away:"アウェイ",firstHalf:"前半",secondHalf:"後半",extra:"延長",thTeam:"チーム",thP:"試",thW:"勝",thD:"分",thL:"敗",thGD:"得失",thPts:"勝点",continent:"大陸",capital:"首都",population:"人口",popUnit:"人",area:"面積",founded:"創設",wcHistory:"W杯成績",scheduleTitle:"日程",squad:"メンバー",coach:"監督",apps:"本大会出場",other:"その他",bestResult:"最高成績",timesN:"{n}回",appsN:"{n}回",youngest:"最年少",oldest:"最年長",unavail:"出場不可",injured:"負傷",club:"所属",lookup:"照会中…",position:"ポジション",wcGoals:"今大会の得点",wcGoalsAll:"W杯通算得点",cardYellow:"警告",cardRed:"退場",number:"背番号",ageL:"年齢",birthday:"生年月日",height:"身長",weight:"体重",birthplace:"出身地",outOfSquad:"出場不可",ageN:"{n}歳",upcoming:"予定",groupN:"{g}組",tieNote:"勝点·得失·得点·当該対戦",advCol:"32強",advAuto:"突破",advPo:"通過圏",adv3In:"3位通過",adv3Out:"3位敗退",thWDL:"勝分敗",thGFGA:"得:失",thNext:"次戦",clinched:"突破確定",thGF:"得点",thGA:"失点",thGGG:"得失差",thCard:"カード",provisional:"暫定",eliminated:"敗退",fixed:"確定",thFixed:"確定",thirdRule:"ベスト32 = 各組上位2 + 3位上位8チーム。3位順位(FIFA)：",thirdsTitle:"ベスト32争い (確定·敗退を除く)",thirdsNote:"1・2位 = 自動突破 · 3位 = 上位8チーム突破 · 4位 = 敗退。試合終了ごとに再計算。",advFormat:"ベスト32 = 各組上位2 + 3位上位8チーム。",rankGroupTitle:"① 組内順位 — 同組 → 当該対戦あり (FIFA 2026):",rankThirdTitle:"② 組間3位順位 — 異なる組 → 当該対戦なし:",groupStage:"グループステージ",debut:"初出場",place4:"4位",unbeaten:"無敗",zaire:"ザイール",appPredict:"Elo x Score",predicting:"分析中…",factorForm:"調子",factorInj:"負傷",factorCards:"カード",factorPts:"勝点",factorGd:"得失",factorHome:"ホーム",predNote:"FIFAランク+今大会の成績・負傷・カードを総合",today:"今日",oddsRef:"ブックメーカー (ESPN)",predScore:"予想スコア",claudePick:"Claude 予想",cDiffer:"モデルと異なる",cReasonEven:"互角 — わずかに優位。",cReasonStar:"{who} が絶好調。",cReasonPower:"大舞台に強い伝統国。",cReasonForm:"勢いに乗る。",cReasonHome:"ホームの利が後押し。",cReasonStrength:"地力と層で上回る。",cConfLbl:"的中確率",cConfHint:"この予想が当たるとモデルが推定する確率",aiNoKey:"config.json に {k} を追加で有効化",aiFail:"モデルに接続できません",aiQuota:"リクエスト上限 (まもなく自動再試行)",wind:"風速",alt:"標高",lineup:"スタメン",predLineup:"予想スタメン",predLineupNote:"推定 — 負傷・出場停止を除外、相手に応じた布陣",lineupOut:"欠場",suspended:"出場停止",startingXI:"先発",subs:"控え",strength:"強さ",keyPlayers:"得点者",reset:"リセット",calibration:"補正",notifKickoff:"⚽ キックオフ",notifGoal:"⚽ ゴール！",notifGoalBy:"⚽ {who} ゴール！",notifFT:"🏁 試合終了"},
+ en:{loading:"Loading…",loadingYear:"Loading {y}…",loadFail:"Failed to load",teamLoading:"Loading team…",teamFail:"Couldn't load team info.<br>Please try again.",close:"Close",standingsLoading:"Loading standings…",noStandings:"No standings data",noMatchesDay:"No matches on this day",noSchedule:"No matches",matches:"{n} matches",expandAll:"Expand all",collapseAll:"Collapse all",bracketPending:"The knockout bracket is set after the group stage",matchLoading:"Loading match info…",matchFail:"Couldn't load info",noEventsYet:"No events recorded yet",noMatchDetail:"Match details not found",events:"Events",eventsHint:"← match time →",noRecord:"none",highlight:"Highlight",playGoal:"Play goal highlight",schedule:"Schedule",groups:"Groups",bracket:"Bracket",tabAccuracy:"Accuracy",accPredictor:"Predictor",accOutcome:"Outcome",accExact:"Exact score",accGradeAI:"Grade AI picks",accGrading:"Grading…",accNote:"Outcome = winner correct. AI picks (Gemini/ChatGPT) count only matches already graded — tap 'Grade AI picks' to fill the rest.",accNoData:"No finished matches yet",accByRound:"By round",roundN:"Round {n}",localTime:"Local time",tzHint:"Checked: venue local time / Unchecked: KST",editionTitle:"World Cup edition",themeChange:"Change theme",toDark:"Switch to dark mode",toLight:"Switch to light mode",refresh:"Refresh",alertOn:"Turn off alerts",alertOff:"Get alerts",alertMatch:"Get match alerts",saved:"Saved",saving:"Saving…",champion:"Champion",runnerUp:"Runner-up",third:"3rd",goalsN:"({n} goals)",final:"Final",opening:"Opening Ceremony",finalFull:"Final (full)",finalHl:"Final H/L",live:"LIVE",finished:"FT",pk:"PK",afterPens:"pens",liveHT:"HT",liveET:"ET",tbd:"TBD",thirdPlace:"3rd place",st32:"Round of 32",st16:"Round of 16",stQF:"Quarter-finals",stSF:"Semi-finals",capacity:"Capacity",seatsUnit:"",surface:"Surface",attendance:"Attendance",temp:"Temp",humidity:"Humidity",odds:"Odds",home:"Home",draw:"Draw",away:"Away",firstHalf:"1st",secondHalf:"2nd",extra:"ET",thTeam:"Team",thP:"P",thW:"W",thD:"D",thL:"L",thGD:"GD",thPts:"Pts",continent:"Confederation",capital:"Capital",population:"Population",popUnit:"",area:"Area",founded:"Founded",wcHistory:"World Cup history",scheduleTitle:"Schedule",squad:"Squad",coach:"Coach",apps:"Appearances",other:"Other",bestResult:"Best result",timesN:"{n}",appsN:"{n}",youngest:"Youngest",oldest:"Oldest",unavail:"Out",injured:"Injured",club:"Club",lookup:"Looking up…",position:"Position",wcGoals:"Goals (this WC)",wcGoalsAll:"Goals (all WCs)",cardYellow:"Yellow cards",cardRed:"Red cards",number:"No.",ageL:"Age",birthday:"Birthday",height:"Height",weight:"Weight",birthplace:"Birthplace",outOfSquad:"Unavailable",ageN:"{n}",upcoming:"Upcoming",groupN:"Group {g}",tieNote:"Pts · GD · GF · head-to-head",advCol:"R32",advAuto:"Through",advPo:"3rd✓",adv3In:"3rd ✓",adv3Out:"3rd ✗",thWDL:"W D L",thGFGA:"GF:GA",thNext:"Next",clinched:"Clinched",thGF:"GF",thGA:"GA",thGGG:"GF GA GD",thCard:"Cards",provisional:"provisional",eliminated:"Out",fixed:"Fixed",thFixed:"Status",advFormat:"Round of 32 = top 2 of each group + the 8 best 3rd-placed teams.",rankGroupTitle:"① Within-Group Ranking — same group → head-to-head applies (FIFA 2026):",rankThirdTitle:"② Cross-Group 3rd-Place Ranking — different groups → no head-to-head:",groupStage:"Group stage",debut:"Debut",place4:"4th",unbeaten:"unbeaten",zaire:"Zaire",appPredict:"Elo x Score",predicting:"Analyzing…",factorForm:"Form",factorInj:"Injuries",factorCards:"Cards",factorPts:"Points",factorGd:"GoalDiff",factorHome:"Home",predNote:"From FIFA ranking + this tournament's form, injuries & cards",today:"TODAY",oddsRef:"Betting odds (ESPN)",predScore:"Likely score",claudePick:"Claude's pick",cDiffer:"differs from model",cReasonEven:"Too close to call — a slight edge.",cReasonStar:"{who} is in red-hot form.",cReasonPower:"Tournament pedigree in the big games.",cReasonForm:"Riding strong momentum.",cReasonHome:"Home advantage tips it.",cReasonStrength:"The stronger, deeper side.",cConfLbl:"win prob",cConfHint:"The model's estimated probability this pick is correct",aiNoKey:"Add {k} to config.json to enable",aiFail:"Couldn't reach the model",aiQuota:"Rate/usage limit — auto-retry shortly",wind:"Wind",alt:"Altitude",lineup:"Lineup",predLineup:"Predicted XI",predLineupNote:"estimate — out injured/suspended players, shape vs opponent",lineupOut:"Unavailable",suspended:"Suspended",startingXI:"Starting XI",subs:"Substitutes",strength:"Strength",keyPlayers:"Top scorers",reset:"Reset",calibration:"Calibration",notifKickoff:"⚽ Kickoff",notifGoal:"⚽ Goal!",notifGoalBy:"⚽ {who} — Goal!",notifFT:"🏁 Full time",advRace:"R32 advancement race — match by match",advRaceSub:"Round 3, one match at a time — each re-simulated 4,000× for the advancement odds, plus a 3rd-place wildcard bingo. Tap a tile to switch team; scrub the timeline to replay.",advCalc:"Computing the advancement race…",advInZone:"in zone",advOutZone:"out zone",advElimFixed:"eliminated",advOwnGroup:"own group",advNoGame:"not played",advVsThirds:"vs other groups' 3rd",advReplay:"Replay",advR2End:"after round 2"},
+ ko:{loading:"불러오는 중…",loadingYear:"{y} 불러오는 중…",loadFail:"불러오기 실패",teamLoading:"팀 정보 불러오는 중…",teamFail:"팀 정보를 불러오지 못했습니다.<br>잠시 후 다시 시도해 주세요.",close:"닫기",standingsLoading:"조별 순위 불러오는 중…",noStandings:"조별 순위 데이터가 없습니다",noMatchesDay:"이 날짜에 경기가 없습니다",noSchedule:"경기 일정이 없습니다",matches:"{n} 경기",expandAll:"전경기 펼치기",collapseAll:"전경기 접기",bracketPending:"토너먼트 대진은 조별리그 종료 후 확정됩니다",matchLoading:"경기 정보 불러오는 중…",matchFail:"정보를 불러올 수 없습니다",noEventsYet:"아직 기록된 이벤트가 없습니다",noMatchDetail:"이 경기의 상세 정보를 찾지 못했습니다",events:"이벤트",eventsHint:"← 경기 시간 →",noRecord:"기록 없음",highlight:"하이라이트",playGoal:"골 하이라이트 재생",schedule:"일정",groups:"조별",bracket:"대진표",tabAccuracy:"예측성적",accPredictor:"예측기",accOutcome:"승부 적중",accExact:"정확 스코어",accGradeAI:"AI 채점",accGrading:"채점 중…",accNote:"승부 적중 = 승자 맞춤. AI(Gemini/ChatGPT)는 이미 채점된 경기만 집계됩니다 — 'AI 채점'을 누르면 나머지를 채웁니다.",accNoData:"아직 종료된 경기가 없습니다",accByRound:"차수별 결과",roundN:"{n}차전",localTime:"현지시간",tzHint:"체크: 경기장 현지시간 / 해제: 한국시간",editionTitle:"월드컵 회차",themeChange:"테마 변경",toDark:"다크 모드로 전환",toLight:"라이트 모드로 전환",refresh:"새로고침",alertOn:"알림 끄기",alertOff:"알림 받기",alertMatch:"경기 알림 받기",saved:"저장됨",saving:"저장 중…",champion:"우승",runnerUp:"준우승",third:"3위",goalsN:"({n}골)",final:"결승",opening:"개막식",finalFull:"결승 풀경기",finalHl:"결승 H/L",live:"LIVE",finished:"종료",pk:"PK",afterPens:"승부차기",liveHT:"하프타임",liveET:"연장",tbd:"미정",thirdPlace:"3·4위전",st32:"32강",st16:"16강",stQF:"8강",stSF:"4강",capacity:"수용인원",seatsUnit:"석",surface:"표면",attendance:"관중",temp:"온도",humidity:"습도",odds:"배당",home:"홈",draw:"무",away:"원정",firstHalf:"전반",secondHalf:"후반",extra:"연장",thTeam:"팀",thP:"경기",thW:"승",thD:"무",thL:"패",thGD:"득실",thPts:"승점",continent:"대륙",capital:"수도",population:"인구",popUnit:"명",area:"면적",founded:"협회창설",wcHistory:"월드컵 역대 성적",scheduleTitle:"일정",squad:"선수단",coach:"감독",apps:"본선 출전",other:"그 외",bestResult:"최고 성적",timesN:"{n}회",appsN:"{n}회",youngest:"최연소",oldest:"최고령",unavail:"출전불가",injured:"부상",club:"소속팀",lookup:"조회 중…",position:"포지션",wcGoals:"이번 월드컵 득점",wcGoalsAll:"통산 월드컵 득점",cardYellow:"경고(옐로)",cardRed:"퇴장(레드)",number:"등번호",ageL:"나이",birthday:"생일",height:"신장",weight:"체중",birthplace:"출생지",outOfSquad:"출전 불가",ageN:"{n}세",upcoming:"예정",groupN:"{g}조",tieNote:"승점·득실·다득점·승자승 순",advCol:"32강",advAuto:"진출",advPo:"진출권",adv3In:"3위 진출권",adv3Out:"3위 탈락권",thWDL:"승무패",thGFGA:"득실점",thNext:"다음",clinched:"진출확정",thGF:"득점",thGA:"실점",thGGG:"득실차",thCard:"카드",provisional:"잠정",eliminated:"탈락",fixed:"확정",thFixed:"확정",advFormat:"32강 = 각 조 1·2위 + 3위 중 상위 8팀.",rankGroupTitle:"① 조내 순위 — 같은 조 → 승자승 적용 (FIFA 2026):",rankThirdTitle:"② 조간 3위 — 다른 조 → 승자승 없음:",groupStage:"조별리그",debut:"첫 출전",place4:"4위",unbeaten:"무패",zaire:"자이르",appPredict:"Elo x Score",predicting:"분석 중…",factorForm:"최근",factorInj:"부상",factorCards:"카드",factorPts:"승점",factorGd:"득실",factorHome:"홈",predNote:"FIFA 랭킹 + 이번 대회 성적·부상·카드 종합",today:"오늘",oddsRef:"베팅 배당 (ESPN)",predScore:"예상 스코어",claudePick:"Claude 예측",cDiffer:"모델과 다른 의견",cReasonEven:"막상막하 — 근소한 우위.",cReasonStar:"{who}의 폼이 절정.",cReasonPower:"빅매치에 강한 전통 강호.",cReasonForm:"상승세를 타고 있음.",cReasonHome:"홈 이점이 승부를 가른다.",cReasonStrength:"전력·뎁스에서 우위.",cConfLbl:"적중확률",cConfHint:"이 픽이 맞을 것으로 모델이 추정한 확률",aiNoKey:"config.json에 {k} 추가하면 활성화",aiFail:"모델 호출 실패",aiQuota:"요청 한도 초과 (잠시 후 자동 재시도)",wind:"풍속",alt:"고도",lineup:"라인업",predLineup:"예상 라인업",predLineupNote:"추정 — 부상·출장정지 제외, 상대 맞춤 포메이션",lineupOut:"결장",suspended:"출장정지",startingXI:"선발",subs:"교체",strength:"강도",keyPlayers:"주요 득점",reset:"초기화",calibration:"보정",notifKickoff:"⚽ 경기 시작",notifGoal:"⚽ 골!",notifGoalBy:"⚽ {who} 골!",notifFT:"🏁 경기 종료",advRace:"32강 진출 레이스 — 경기마다",advRaceSub:"3차전을 한 경기씩, 매 경기 4,000회 시뮬레이션한 진출 확률 + 3위 와일드카드 빙고. 칸을 눌러 팀을 바꾸고, 아래 타임라인으로 재생하세요.",advCalc:"진출 레이스 계산 중…",advInZone:"진출권",advOutZone:"탈락권",advElimFixed:"탈락 확정",advOwnGroup:"우리 조",advNoGame:"경기 전",advVsThirds:"vs 다른 조 3위",advReplay:"다시",advR2End:"2차전 종료"},
+ zh:{loading:"加载中…",loadingYear:"加载 {y}…",loadFail:"加载失败",teamLoading:"加载球队…",teamFail:"无法加载球队信息。<br>请稍后重试。",close:"关闭",standingsLoading:"加载排名…",noStandings:"暂无排名数据",noMatchesDay:"当天没有比赛",noSchedule:"暂无赛程",matches:"{n} 场",expandAll:"展开全部",collapseAll:"收起全部",bracketPending:"淘汰赛对阵将在小组赛结束后确定",matchLoading:"加载比赛信息…",matchFail:"无法加载信息",noEventsYet:"暂无事件记录",noMatchDetail:"未找到该场比赛详情",events:"事件",eventsHint:"← 比赛时间 →",noRecord:"无记录",highlight:"集锦",playGoal:"播放进球集锦",schedule:"赛程",groups:"小组",bracket:"对阵表",tabAccuracy:"预测战绩",accPredictor:"预测器",accOutcome:"胜负命中",accExact:"精确比分",accGradeAI:"AI 评分",accGrading:"评分中…",accNote:"胜负命中=猜对胜方。AI(Gemini/ChatGPT)仅统计已评分的比赛 — 点击'AI 评分'补全其余。",accNoData:"暂无已结束的比赛",accByRound:"分轮次",roundN:"第{n}轮",localTime:"当地时间",tzHint:"勾选：球场当地时间 / 取消：韩国时间",editionTitle:"世界杯届次",themeChange:"切换主题",toDark:"切换到深色模式",toLight:"切换到浅色模式",refresh:"刷新",alertOn:"关闭提醒",alertOff:"开启提醒",alertMatch:"开启比赛提醒",saved:"已保存",saving:"保存中…",champion:"冠军",runnerUp:"亚军",third:"季军",goalsN:"({n}球)",final:"决赛",opening:"开幕式",finalFull:"决赛全场",finalHl:"决赛集锦",live:"LIVE",finished:"完场",pk:"点球",afterPens:"点球大战",liveHT:"中场",liveET:"加时",tbd:"待定",thirdPlace:"三四名决赛",st32:"32强",st16:"16强",stQF:"8强",stSF:"4强",capacity:"容量",seatsUnit:"座",surface:"场地",attendance:"观众",temp:"气温",humidity:"湿度",odds:"赔率",home:"主",draw:"平",away:"客",firstHalf:"上半场",secondHalf:"下半场",extra:"加时",thTeam:"球队",thP:"场",thW:"胜",thD:"平",thL:"负",thGD:"净胜",thPts:"积分",continent:"大洲",capital:"首都",population:"人口",popUnit:"人",area:"面积",founded:"成立",wcHistory:"世界杯历史战绩",scheduleTitle:"赛程",squad:"球员名单",coach:"主教练",apps:"参赛次数",other:"其他",bestResult:"最佳成绩",timesN:"{n}次",appsN:"{n}次",youngest:"最年轻",oldest:"最年长",unavail:"不可出场",injured:"伤病",club:"所属球队",lookup:"查询中…",position:"位置",wcGoals:"本届进球",wcGoalsAll:"世界杯总进球",cardYellow:"黄牌",cardRed:"红牌",number:"号码",ageL:"年龄",birthday:"生日",height:"身高",weight:"体重",birthplace:"出生地",outOfSquad:"无法出场",ageN:"{n}岁",upcoming:"未赛",groupN:"{g}组",tieNote:"积分·净胜·进球·相互成绩",advCol:"32强",advAuto:"晋级",advPo:"或晋级",adv3In:"第3晋级",adv3Out:"第3出局",thWDL:"胜平负",thGFGA:"进:失",thNext:"下轮",clinched:"已晋级",thGF:"进球",thGA:"失球",thGGG:"进失净",thCard:"牌",provisional:"暂定",eliminated:"出局",fixed:"已定",thFixed:"状态",advFormat:"32强 = 各组前2 + 8个最佳第3名。",rankGroupTitle:"① 组内排名 — 同组 → 用相互对战 (FIFA 2026):",rankThirdTitle:"② 跨组第3名排名 — 不同组 → 无相互对战:",groupStage:"小组赛",debut:"首次参赛",place4:"第4名",unbeaten:"不败",zaire:"扎伊尔",appPredict:"Elo x Score",predicting:"分析中…",factorForm:"状态",factorInj:"伤病",factorCards:"牌",factorPts:"积分",factorGd:"净胜",factorHome:"主场",predNote:"综合 FIFA 排名 + 本届成绩·伤病·红黄牌",today:"今天",oddsRef:"博彩赔率 (ESPN)",predScore:"预测比分",claudePick:"Claude 预测",cDiffer:"与模型不同",cReasonEven:"势均力敌 — 略占上风。",cReasonStar:"{who} 状态火热。",cReasonPower:"大赛底蕴深厚。",cReasonForm:"势头正旺。",cReasonHome:"主场优势占先。",cReasonStrength:"实力与厚度更胜一筹。",cConfLbl:"命中概率",cConfHint:"模型估计该预测正确的概率",aiNoKey:"在 config.json 添加 {k} 即可启用",aiFail:"无法连接模型",aiQuota:"请求超限 (稍后自动重试)",wind:"风速",alt:"海拔",lineup:"阵容",predLineup:"预测阵容",predLineupNote:"预估 — 已排除伤停球员，按对手调整阵型",lineupOut:"缺阵",suspended:"停赛",startingXI:"首发",subs:"替补",strength:"实力",keyPlayers:"主要射手",reset:"重置",calibration:"校准",notifKickoff:"⚽ 开球",notifGoal:"⚽ 进球！",notifGoalBy:"⚽ {who} 进球！",notifFT:"🏁 完场",advRace:"32强晋级竞赛 — 逐场",advRaceSub:"第3轮逐场（每场模拟4,000次）计算晋级概率，附第3名外卡宾果。点击格子切换球队，拖动下方时间线回放。",advCalc:"正在计算晋级竞赛…",advInZone:"晋级圈",advOutZone:"出局圈",advElimFixed:"已出局",advOwnGroup:"本组",advNoGame:"未赛",advVsThirds:"对阵他组第3名",advReplay:"重播",advR2End:"第2轮结束后"},
+ ja:{loading:"読み込み中…",loadingYear:"{y} を読み込み中…",loadFail:"読み込み失敗",teamLoading:"チーム情報を読み込み中…",teamFail:"チーム情報を読み込めませんでした。<br>後ほど再試行してください。",close:"閉じる",standingsLoading:"順位を読み込み中…",noStandings:"順位データがありません",noMatchesDay:"この日は試合がありません",noSchedule:"試合がありません",matches:"{n} 試合",expandAll:"全試合を展開",collapseAll:"全試合を折りたたむ",bracketPending:"決勝トーナメントの組み合わせはグループステージ終了後に確定します",matchLoading:"試合情報を読み込み中…",matchFail:"情報を読み込めません",noEventsYet:"まだイベントの記録がありません",noMatchDetail:"この試合の詳細が見つかりません",events:"イベント",eventsHint:"← 試合時間 →",noRecord:"記録なし",highlight:"ハイライト",playGoal:"ゴールハイライト再生",schedule:"日程",groups:"グループ",bracket:"トーナメント",tabAccuracy:"予測成績",accPredictor:"予測者",accOutcome:"勝敗的中",accExact:"スコア的中",accGradeAI:"AI採点",accGrading:"採点中…",accNote:"勝敗的中=勝者を当てた。AI(Gemini/ChatGPT)は採点済みの試合のみ集計 — 「AI採点」で残りを補完。",accNoData:"まだ終了した試合がありません",accByRound:"節別の結果",roundN:"第{n}節",localTime:"現地時間",tzHint:"チェック：会場の現地時間 / 解除：韓国時間",editionTitle:"ワールドカップ大会",themeChange:"テーマ変更",toDark:"ダークモードに切替",toLight:"ライトモードに切替",refresh:"更新",alertOn:"通知オフ",alertOff:"通知オン",alertMatch:"試合通知を受け取る",saved:"保存済み",saving:"保存中…",champion:"優勝",runnerUp:"準優勝",third:"3位",goalsN:"({n}点)",final:"決勝",opening:"開会式",finalFull:"決勝フル",finalHl:"決勝H/L",live:"LIVE",finished:"終了",pk:"PK",afterPens:"PK戦",liveHT:"ハーフタイム",liveET:"延長",tbd:"未定",thirdPlace:"3位決定戦",st32:"ベスト32",st16:"ベスト16",stQF:"準々決勝",stSF:"準決勝",capacity:"収容人数",seatsUnit:"席",surface:"ピッチ",attendance:"観客",temp:"気温",humidity:"湿度",odds:"オッズ",home:"ホーム",draw:"分",away:"アウェイ",firstHalf:"前半",secondHalf:"後半",extra:"延長",thTeam:"チーム",thP:"試",thW:"勝",thD:"分",thL:"敗",thGD:"得失",thPts:"勝点",continent:"大陸",capital:"首都",population:"人口",popUnit:"人",area:"面積",founded:"創設",wcHistory:"W杯成績",scheduleTitle:"日程",squad:"メンバー",coach:"監督",apps:"本大会出場",other:"その他",bestResult:"最高成績",timesN:"{n}回",appsN:"{n}回",youngest:"最年少",oldest:"最年長",unavail:"出場不可",injured:"負傷",club:"所属",lookup:"照会中…",position:"ポジション",wcGoals:"今大会の得点",wcGoalsAll:"W杯通算得点",cardYellow:"警告",cardRed:"退場",number:"背番号",ageL:"年齢",birthday:"生年月日",height:"身長",weight:"体重",birthplace:"出身地",outOfSquad:"出場不可",ageN:"{n}歳",upcoming:"予定",groupN:"{g}組",tieNote:"勝点·得失·得点·当該対戦",advCol:"32強",advAuto:"突破",advPo:"通過圏",adv3In:"3位通過",adv3Out:"3位敗退",thWDL:"勝分敗",thGFGA:"得:失",thNext:"次戦",clinched:"突破確定",thGF:"得点",thGA:"失点",thGGG:"得失差",thCard:"カード",provisional:"暫定",eliminated:"敗退",fixed:"確定",thFixed:"確定",advFormat:"ベスト32 = 各組上位2 + 3位上位8チーム。",rankGroupTitle:"① 組内順位 — 同組 → 当該対戦あり (FIFA 2026):",rankThirdTitle:"② 組間3位順位 — 異なる組 → 当該対戦なし:",groupStage:"グループステージ",debut:"初出場",place4:"4位",unbeaten:"無敗",zaire:"ザイール",appPredict:"Elo x Score",predicting:"分析中…",factorForm:"調子",factorInj:"負傷",factorCards:"カード",factorPts:"勝点",factorGd:"得失",factorHome:"ホーム",predNote:"FIFAランク+今大会の成績・負傷・カードを総合",today:"今日",oddsRef:"ブックメーカー (ESPN)",predScore:"予想スコア",claudePick:"Claude 予想",cDiffer:"モデルと異なる",cReasonEven:"互角 — わずかに優位。",cReasonStar:"{who} が絶好調。",cReasonPower:"大舞台に強い伝統国。",cReasonForm:"勢いに乗る。",cReasonHome:"ホームの利が後押し。",cReasonStrength:"地力と層で上回る。",cConfLbl:"的中確率",cConfHint:"この予想が当たるとモデルが推定する確率",aiNoKey:"config.json に {k} を追加で有効化",aiFail:"モデルに接続できません",aiQuota:"リクエスト上限 (まもなく自動再試行)",wind:"風速",alt:"標高",lineup:"スタメン",predLineup:"予想スタメン",predLineupNote:"推定 — 負傷・出場停止を除外、相手に応じた布陣",lineupOut:"欠場",suspended:"出場停止",startingXI:"先発",subs:"控え",strength:"強さ",keyPlayers:"得点者",reset:"リセット",calibration:"補正",notifKickoff:"⚽ キックオフ",notifGoal:"⚽ ゴール！",notifGoalBy:"⚽ {who} ゴール！",notifFT:"🏁 試合終了",advRace:"ベスト32進出レース — 1試合ずつ",advRaceSub:"第3節を1試合ずつ（各4,000回シミュレーション）した進出確率＋3位ワイルドカードのビンゴ。タイルをタップでチーム切替、下のタイムラインで再生。",advCalc:"進出レースを計算中…",advInZone:"通過圏",advOutZone:"敗退圏",advElimFixed:"敗退確定",advOwnGroup:"自組",advNoGame:"未消化",advVsThirds:"他組3位と比較",advReplay:"もう一度",advR2End:"第2節終了"},
 };
 function tr(k, p){
   const d = I18N[LANG] || {};
@@ -1340,7 +1429,7 @@ function setTz(tz){
 }
 
 async function loadStandings(){
-  document.getElementById("main").innerHTML = `<div class="empty"><div class="big">▦</div>${tr("standingsLoading")}</div>`;
+  document.getElementById("main").innerHTML = `<div class="empty"><img class="ld-logo-big" src="${edLogo()}">${tr("standingsLoading")}</div>`;
   const url = state.editionCurrent!==false ? "/api/standings" : "/api/standings?year="+state.edition;
   const s = await fetch(url).then(r=>r.json());
   state.groups = s.groups; if (s.source) setSrc(s.source); render();
@@ -1354,7 +1443,7 @@ function liveLabel(m){
   const d=(m.detail||"").trim(), low=d.toLowerCase();
   if (!d) return m.clock || tr("live");
   if (low.includes("halftime") || low==="ht") return tr("liveHT");
-  if (low.includes("penalt") || low.startsWith("pen")) return "PK";
+  if (low.includes("penalt") || low.includes("shootout") || low.startsWith("pen") || low==="so") return tr("pk");
   if (low.includes("extra")) return m.clock ? `ET ${m.clock}` : tr("liveET");
   return d;   // already concise broadcast text: "44'", "90'+3'", "ET 105'", etc.
 }
@@ -1363,8 +1452,11 @@ function centerInner(m){
   const live = LIVE_STATUS.includes(m.status);
   const hs = m.score.home, as = m.score.away;
   if (!finished && !live) return `<span class="vs">VS</span>`;
-  const pill = finished ? `<span class="pill ft">FT</span>` : `<span class="pill live">${liveLabel(m)}</span>`;
-  return `<span class="sc">${hs??0} <span style="color:var(--mute)">:</span> ${as??0}</span>${pill}`;
+  const pens = (m.score||{}).pens;
+  const penTxt = ((finished||live) && pens && (pens.home!=null||pens.away!=null))
+    ? ` <span class="pen">(${tr("pk")} ${pens.home??0}-${pens.away??0})</span>` : "";
+  const pill = finished ? `<span class="pill ft">${pens?tr("pk"):"FT"}</span>` : `<span class="pill live">${liveLabel(m)}</span>`;
+  return `<span class="sc">${hs??0} <span style="color:var(--mute)">:</span> ${as??0}${penTxt}</span>${pill}`;
 }
 function dayHasLive(){
   const day = state.selectedDate;
@@ -1421,6 +1513,10 @@ function render(){
   scheduleLivePoll();
   updateBadge();
 }
+// re-flow the bracket between horizontal-tree and vertical-stack when the window is resized
+let _brkRT;
+window.addEventListener("resize", ()=>{ if(state.view!=="bracket") return;
+  clearTimeout(_brkRT); _brkRT=setTimeout(()=>{ if(state.view==="bracket") renderBracket(); }, 160); });
 
 /* ---------- prediction accuracy scoreboard ---------- */
 const ACC_META = { model:{ic:"🔮"}, dk:{ic:"💰",nm:"DraftKings"}, groq:{ic:"⚡",nm:"Groq"}, openai:{ic:"💬",nm:"ChatGPT"} };
@@ -1507,12 +1603,13 @@ async function gradeAI(btn){
 function brCard(m){
   const decided = m.status==="FINISHED" || LIVE_STATUS.includes(m.status);
   const live = LIVE_STATUS.includes(m.status);
-  const row = (tm, sc) => `<div class="br-team"><img src="${tm.crest||flagFb}" onerror="this.src='${flagFb}'"/>
-      <span class="br-nm">${tm.name||tr("tbd")}</span><span class="br-sc">${decided?(sc??0):""}</span></div>`;
+  const pens = (m.score||{}).pens;   // penalty-shootout result → show "(4)" next to the regulation score
+  const row = (tm, sc, pk) => `<div class="br-team"><img src="${tm.crest||flagFb}" onerror="this.src='${flagFb}'"/>
+      <span class="br-nm">${tm.name||tr("tbd")}</span><span class="br-sc">${decided?(sc??0):""}${(decided&&pk!=null)?` <span class="br-pk">(${pk})</span>`:""}</span></div>`;
   const date = m.utcDate ? new Date(tzDateM(m)+"T00:00:00").toLocaleDateString(dloc(),{month:"numeric",day:"numeric"}) : "";
-  const tag = live ? " · "+tr("live") : m.status==="FINISHED" ? " · "+tr("finished") : "";
+  const tag = live ? " · "+tr("live") : (m.status==="FINISHED" ? (pens ? " · "+tr("afterPens") : " · "+tr("finished")) : "");
   return `<div class="br-match ${live?"islive":""}" onclick="gotoMatch(${m.id})">
-    ${row(m.home, m.score.home)}${row(m.away, m.score.away)}
+    ${row(m.home, m.score.home, pens?pens.home:null)}${row(m.away, m.score.away, pens?pens.away:null)}
     <div class="br-meta">${date}${tag}</div></div>`;
 }
 function renderBracket(){
@@ -1521,17 +1618,52 @@ function renderBracket(){
   const r32=byStage("LAST_32"), r16=byStage("LAST_16"), qf=byStage("QUARTER_FINALS"), sf=byStage("SEMI_FINALS");
   const fin=byStage("FINAL")[0], third=byStage("THIRD_PLACE")[0];
   if (!r32.length && !r16.length && !fin){ main.innerHTML = `<div class="empty"><div class="big">🏆</div>${tr("bracketPending")}</div>`; return; }
-  const half = a => { const n=Math.ceil(a.length/2); return [a.slice(0,n), a.slice(n)]; };
-  const [r32L,r32R]=half(r32), [r16L,r16R]=half(r16), [qfL,qfR]=half(qf), [sfL,sfR]=half(sf);
-  const col = (title,ms) => ms.length ? `<div class="br-col"><div class="br-rnd">${title}</div>${ms.map(brCard).join("")}</div>` : "";
-  main.innerHTML = `<div class="bracket">
-    ${col(tr("st32"),r32L)}${col(tr("st16"),r16L)}${col(tr("stQF"),qfL)}${col(tr("stSF"),sfL)}
-    <div class="br-col br-center">
-      <div class="br-rnd">🏆 ${tr("final")}</div>${fin?brCard(fin):`<div class="br-tbd">${tr("tbd")}</div>`}
-      ${third?`<div class="br-rnd third">${tr("thirdPlace")}</div>${brCard(third)}`:""}
-    </div>
-    ${col(tr("stSF"),sfR)}${col(tr("stQF"),qfR)}${col(tr("st16"),r16R)}${col(tr("st32"),r32R)}
+  const col = (title,ms) => ms.length ? `<div class="br-col"><div class="br-rnd">${title}</div><div class="br-col-body">${ms.map(brCard).join("")}</div></div>` : "";
+
+  // ---- bracket wiring. R16→QF→SF→Final follow event-id order (this matches the official bracket).
+  // R32→R16 does NOT: ESPN's "Round of 32 N" slot numbers aren't the id order and there's no slot
+  // field, so for the 48-team format the official, fixed R32-game → R16 wiring is hardcoded here
+  // (it's structural — independent of who wins). Falls back to a simple id-split for other formats. ----
+  const R16_OF_R32 = [1,3,1,2,3,4,2,6,6,4,5,5,8,7,7,8];   // r32[i] (id order) feeds this R16 (1–8)
+  const L16i=[1,2,5,6], R16i=[3,4,7,8];                   // left half = Semifinal 1 (QF1+QF2); right = SF2
+  let L32,R32,L16,Rt16,LQF,RQF,LSF,RSF;
+  if (r32.length===16 && r16.length===8 && qf.length===4 && sf.length===2){
+    const feeders = idx => r32.filter((m,p)=> R16_OF_R32[p]===idx);   // the two R32 games feeding R16 #idx
+    const r16at = i => r16[i-1];
+    L16 = L16i.map(r16at);          Rt16 = R16i.map(r16at);
+    L32 = L16i.flatMap(feeders);    R32  = R16i.flatMap(feeders);
+    LQF = [qf[0],qf[1]];            RQF  = [qf[2],qf[3]];
+    LSF = [sf[0]];                  RSF  = [sf[1]];
+  } else {
+    const half = a => { const n=Math.ceil(a.length/2); return [a.slice(0,n), a.slice(n)]; };
+    [L32,R32]=half(r32); [L16,Rt16]=half(r16); [LQF,RQF]=half(qf); [LSF,RSF]=half(sf);
+  }
+  const finCard = fin ? brCard(fin) : `<div class="br-tbd">${tr("tbd")}</div>`;
+  // shared blocks: final = highlighted (gold) + larger; 3rd place = plain border like other matches
+  const finBlock = `<div class="br-center br-fbig"><div class="br-rnd">🏆 ${tr("final")}</div>${finCard}</div>`;
+  const thirdBlock = third ? `<div class="br-third"><div class="br-rnd third">${tr("thirdPlace")}</div>${brCard(third)}</div>` : "";
+  const centerV = `<div class="br-col br-cwrap">${finBlock}${thirdBlock}</div>`;   // wide: final over 3rd
+  const centerH = `<div class="br-mid">${thirdBlock}${finBlock}</div>`;            // split: 3rd left, final right
+
+  // ---- responsive: the wide tree is ~9 columns. Render it, then measure ACTUAL overflow
+  // (scrollWidth > clientWidth) — not a guessed px threshold. If it doesn't fit, split into the two
+  // Semifinal subtrees stacked top/bottom — each a 4-column mini-tree (R32→R16→QF→SF) with the Final
+  // between — so the width halves (no horizontal scroll) while the feeder-tree structure stays. ----
+  const wideHTML = `<div class="bracket">
+    ${col(tr("st32"),L32)}${col(tr("st16"),L16)}${col(tr("stQF"),LQF)}${col(tr("stSF"),LSF)}
+    ${centerV}
+    ${col(tr("stSF"),RSF)}${col(tr("stQF"),RQF)}${col(tr("st16"),Rt16)}${col(tr("st32"),R32)}
   </div>`;
+  const splitHTML = `<div class="bracket split">
+    <div class="br-stack">
+      <div class="br-half">${col(tr("st32"),L32)}${col(tr("st16"),L16)}${col(tr("stQF"),LQF)}${col(tr("stSF"),LSF)}</div>
+      <div class="br-half">${col(tr("st32"),R32)}${col(tr("st16"),Rt16)}${col(tr("stQF"),RQF)}${col(tr("stSF"),RSF)}</div>
+    </div>
+    ${centerH}
+  </div>`;
+  main.innerHTML = wideHTML;
+  const bel = main.querySelector(".bracket");           // reading scrollWidth forces layout → reliable
+  if (bel && bel.scrollWidth > bel.clientWidth + 4) main.innerHTML = splitHTML;
 }
 
 function teamEl(team, side, extra){
@@ -1874,6 +2006,19 @@ function renderMatchDetail(d){
   };
   // 전반·후반은 항상, 연장은 이벤트 있을 때만 표시 (빈 구간도 여백 유지)
   const showSegs = [0, 1].concat(segs[2].length ? [2] : []);
+  // penalty shootout: ESPN gives the per-kick sequence (player + made/missed) → render O / X in order
+  const so = d.shootout;
+  let pens = (d.score||{}).pens;
+  if (!pens && so) pens = { home:(so.home||[]).filter(s=>s.scored).length, away:(so.away||[]).filter(s=>s.scored).length };
+  const pkMarks = side => ((so && so[side]) || []).map(s =>
+      `<span class="pk-k ${s.scored?"ok":"no"}" title="${(s.player||"").replace(/"/g,"&quot;")} · ${s.scored?"O":"X"}">${s.scored?"O":"X"}</span>`).join("");
+  const pkRow = side => { const opp = side==="home"?"away":"home";
+    return `<div class="pk-line${(pens[side]??0)>(pens[opp]??0)?" pk-win":""}">
+      <img class="tle-flag" src="${flagOf(side)}" onerror="this.src='${flagFb}'"/>
+      <span class="pk-marks">${pkMarks(side)}</span><span class="pk-n">${pens[side]??0}</span></div>`; };
+  const pkSeg = pens ? `<div class="tl-seg tl-pk">
+       <div class="tl-seg-label">${tr("pk")}</div>
+       <div class="tl-seg-events">${pkRow("home")}${pkRow("away")}</div></div>` : "";
   const evHeader = `<div class="acc-sect ev-head">
       <span>${tr("events")} <span class="sect-hint">${tr("eventsHint")}</span></span>
       <div class="hl-actions">
@@ -1881,12 +2026,12 @@ function renderMatchDetail(d){
         ${started ? `<button class="hl-btn2" onclick="playHighlight('${matchQ}')">▶ Highlights</button>` : ""}
         ${started ? `<button class="hl-btn2" onclick="playHighlight('${fullQ}')">▶ Full Match</button>` : ""}
       </div></div>`;
-  const evBody = evAll.length
-    ? `<div class="tl-h-scroll">` + showSegs.map(si => `
+  const evBody = (evAll.length || pens)
+    ? `<div class="tl-h-scroll">` + (evAll.length ? showSegs.map(si => `
          <div class="tl-seg">
            <div class="tl-seg-label">${SEGN[si]}</div>
            <div class="tl-seg-events">${segs[si].length ? segs[si].map(evChip).join("") : `<div class="tl-seg-empty">${tr("noRecord")}</div>`}</div>
-         </div>`).join("") + `</div>`
+         </div>`).join("") : "") + pkSeg + `</div>`
     : (d.espnMatched ? `<div class="acc-empty">${tr("noEventsYet")}</div>`
                      : `<div class="acc-empty">${tr("noMatchDetail")}</div>`);
   const evs = evHeader + evBody;
@@ -2205,36 +2350,6 @@ const THIRD_CRIT = {
 function _cardsStr(t){ const p=[]; if(t.yc)p.push(`🟨${t.yc}`); if(t.rc)p.push(`🟥${t.rc}`); return p.join(" ")||"—"; }
 // Undecided teams (excludes clinched top-2 and the eliminated) — the ones whose fate the round-3
 // results still decide. Sorted by advance probability; shows pts/GD/GF + group position.
-function thirdsTableHtml(){
-  const all=[];
-  Object.keys(_GT.byLetter||{}).forEach(L=> (_GT.byLetter[L]||[]).forEach((t,idx)=> all.push(Object.assign({L, pos:idx+1}, t))));
-  const pn = nm => (_advOdds && _advOdds[nm]!=null) ? _advOdds[nm] : -1;
-  // a 4+pt guaranteed-3rd (out 0% & pts≥4) is treated as confirmed (R32 100%) HERE ONLY — the group
-  // table keeps the real result. Such teams are shown with 100%; otherwise focus on the <100% contested set.
-  const isConf3 = t => { const q=_advPos && _advPos[t.name]; return !!(q && q.p4===0 && t.pos===3 && (t.pts||0)>=4); };
-  const eff = t => isConf3(t) ? 100 : pn(t.name);     // effective R32 % (4+pt 3rd → 100)
-  const cand=all.filter(t=> !_clinchSet.has(t.name) && !_elimSet.has(t.name) && (pn(t.name)<100 || isConf3(t)));
-  if(!cand.length) return "";
-  // sort by effective R32 advance % (desc); ties by the FIFA best-8 rule (pts → GD → GF → cards → rank)
-  cand.sort((x,y)=> (eff(y)-eff(x))
-    || (y.pts-x.pts) || (y.gd-x.gd) || (y.gf-x.gf)
-    || ((x.yc+3*x.rc)-(y.yc+3*y.rc)) || ((x.rank||999)-(y.rank||999)) || (x.name<y.name?-1:1));
-  const prob = nm => pn(nm)>=0 ? pn(nm)+"%" : "…";
-  const ps = nm => (_advPos && _advPos[nm]) || null;            // final-position distribution
-  const pc = (nm,k) => { const q=ps(nm); return q && q[k]!=null ? q[k]+"%" : "…"; };
-  const p12 = nm => { const q=ps(nm); return q ? (q.p1+q.p2)+"%" : "…"; };   // auto-advance (1·2위)
-  const PL = ({en:["Top 2","3rd","4th"],ko:["1·2위","3위","4위"],
-               ja:["1・2位","3位","4位"],zh:["前2","第3","第4"]})[LANG] || ["Top 2","3rd","4th"];
-  const rows=cand.map((t,i)=>`<tr>
-    <td class="pos">${i+1}</td><td class="tg">${t.L}${t.pos}</td>
-    <td class="team-col"><div class="gteam" onclick="openTeamName('${encodeURIComponent(t.name)}')"><img src="${t.crest||flagFb}" onerror="this.src='${flagFb}'"/><span class="gnm">${t.tla||t.name}</span></div></td>
-    <td class="gkey">${t.pts}</td>
-    <td class="tpp">${p12(t.name)}</td><td class="tpp tpp3${(ps(t.name)&&ps(t.name).p3===100)?' p3full':''}">${pc(t.name,'p3')}</td><td class="tpp tppx">${pc(t.name,'p4')}</td>
-    <td class="tpr">${isConf3(t)?'100%':prob(t.name)}</td></tr>`).join("");
-  return `<div class="thirds"><div class="sect-title">${tr("thirdsTitle")}</div>
-    <table class="stand thirds-t"><thead><tr><th>#</th><th>${tr("groups")}</th><th class="team-col">${tr("thTeam")}</th><th class="gkey">${tr("thPts")}</th><th class="tpp">${PL[0]}</th><th class="tpp3">${PL[1]}</th><th class="tpp">${PL[2]}</th><th title="Monte-Carlo">${tr("advCol")}</th></tr></thead><tbody>${rows}</tbody></table>
-    <div class="thirds-note">${tr("thirdsNote")}</div></div>`;
-}
 function renderGroups(){
   const main = document.getElementById("main");
   if (!state.groups.length){ main.innerHTML = `<div class="empty"><div class="big">▦</div>${tr("noStandings")}</div>`; return; }
@@ -2329,10 +2444,184 @@ function renderGroups(){
       <div class="gn-t">${tr("advFormat")}</div>
       <div class="gn-sub">${tr("rankGroupTitle")}</div>
       <ol class="gn-rule">${(GROUP_CRIT[LANG]||GROUP_CRIT.en).map(c=>`<li>${c}</li>`).join("")}</ol></div>`
-    + thirdsTableHtml()
+    + `<div id="advtrend" class="advt-wrap"></div>`
     + `<div class="groups-note">
       <div class="gn-sub">${tr("rankThirdTitle")}</div>
       <ol class="gn-rule">${(THIRD_CRIT[LANG]||THIRD_CRIT.en).map(c=>`<li>${c}</li>`).join("")}</ol></div>`;
+  renderAdvTrend();
+}
+
+/* ---------- advancement trend: day-by-day R32 race + 3rd-place wildcard bingo ---------- */
+let _advData = undefined, _advSel = null, _advDay = null, _advTimer = null;
+function _advReduce(){ try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch(e){ return false; } }
+function renderAdvTrend(){
+  const host = document.getElementById("advtrend"); if (!host) return;
+  if (_advData === undefined){                       // fetch once (heavy; server caches by signature)
+    _advData = null;
+    host.innerHTML = `<div class="advt-load"><img class="ld-logo" src="${edLogo()}"> 진출 레이스 계산 중…</div>`;
+    fetch("/api/advtrend").then(r=>r.json()).then(d=>{ _advData = d || null; if (state.view==="group") renderAdvTrend(); }).catch(()=>{ _advData = null; });
+    return;
+  }
+  const D = _advData;
+  if (!D || !(D.order||[]).length){ host.innerHTML = ""; return; }   // pre-tournament / no data
+  const N = D.labels.length, GL = D.groupsList;
+  if (!_advSel || !D.boards[_advSel]) _advSel = D.boards["South Korea"] ? "South Korea" : D.order[0];   // default: Korea
+  if (_advTimer){ clearInterval(_advTimer); _advTimer = null; }   // stop any animation from a prior render
+  const trendByName = {}; D.teams.forEach(t=> trendByName[t.name] = t.trend);
+  const advCount = D.order.filter(n=> D.boards[n].advanced).length;
+  // flag + abbreviation lookups from the standings already in memory
+  const crestByName = {}, tlaByName = {};
+  (state.groups||[]).forEach(g=> (g.table||[]).forEach(r=>{ if(r.team){ crestByName[r.team.name]=r.team.crest; tlaByName[r.team.name]=r.team.tla; } }));
+  const crestOf = n => crestByName[n] || flagFb;
+  const tlaOf = n => tlaByName[n] || n;
+  const flagImg = (n,cls)=> `<img class="advt-flag${cls?' '+cls:''}" src="${crestOf(n)}" onerror="this.src='${flagFb}'" alt="">`;
+  const marksByGroup = {}; (D.marks||[]).forEach(mk=>{ if(mk) (marksByGroup[mk.L]=marksByGroup[mk.L]||[]).push(mk); });
+
+  host.innerHTML = `
+    <div class="advt-head">🔮 ${tr("advRace")}</div>
+    <div class="advt-sub">${tr("advRaceSub")}</div>
+    <div class="advt-deck3">
+      <div class="advt-sel-col">
+        <div class="advt-tbl-wrap">
+        <table class="advt-tbl"><thead><tr><th>#</th><th>${tr("groups")}</th><th>${tr("thTeam")}</th><th style="text-align:center">${tr("thPts")}</th><th style="text-align:center">${tr("thGD")}</th><th style="text-align:right">${tr("advCol")}</th></tr></thead>
+        <tbody id="advtMeta"></tbody></table></div>
+        <div class="advt-ctrl">
+          <div class="advt-prog"><div class="advt-prog-fill" id="advtProg"></div></div>
+          <button class="advt-replay" id="advtReplay" title="${tr("advReplay")}" aria-label="${tr("advReplay")}">↻</button>
+        </div></div>
+      <div class="advt-card">
+        <div class="advt-kick"><span id="advtSel">–</span><span class="advt-day" id="advtDayL">–</span></div>
+        <svg class="advt-chart" id="advtChart" viewBox="0 0 1000 380" preserveAspectRatio="xMidYMid meet" role="img" aria-label="${tr("advRace")}"></svg>
+        <div class="advt-bigrow"><div class="advt-stat" id="advtStat">–</div><div class="advt-big" id="advtBig">––<small>%</small></div></div>
+      </div>
+      <div class="advt-card advt-bingo-card">
+        <div class="advt-kick"><span id="advtBingoT">${tr("advVsThirds")}</span><span class="advt-fav" id="advtFav">0/11</span></div>
+        <div class="advt-bingo" id="advtBingo"></div>
+      </div>
+    </div>
+    <div class="advt-metanote">${advCount} ${tr("advAuto")} · ${D.order.length-advCount} ${tr("eliminated")} — ${tr("advFormat")}</div>`;
+
+  const W=1000,H=380,m={l:32,r:16,t:14,b:34}, xw=W-m.l-m.r, yh=H-m.t-m.b;
+  const Y=v=> m.t + (1-v/100)*yh;
+  let vis=[], M=1;                                   // vis = baseline + each group's round-3 resolution (12 steps)
+  const X=p=> M<=1 ? m.l + xw/2 : m.l + p*xw/(M-1);
+  const pathOf=t=>{ let s=""; vis.forEach((abs,p)=>{ s+=(p?"L":"M")+X(p).toFixed(1)+" "+Y(t[abs]).toFixed(1)+" "; }); return s; };
+  const chart = host.querySelector("#advtChart");
+  function computeVis(){                              // each group's 3rd place is set when its LAST round-3 match ends →
+    const lastByG={};                                // 12 group-resolution checkpoints (+ baseline). Same for every team.
+    (D.marks||[]).forEach((mk,idx)=>{ if(mk) lastByG[mk.L]=idx; });
+    return [0, ...Object.values(lastByG).sort((a,b)=>a-b)];
+  }
+  function drawChart(){
+    let g="";
+    for(let p=0;p<=100;p+=25){ g+=`<line x1="${m.l}" y1="${Y(p)}" x2="${W-m.r}" y2="${Y(p)}" stroke="#7f8893" stroke-opacity=".18"/>`;
+      g+=`<text x="${m.l-6}" y="${Y(p)+4}" fill="#8a93a0" font-size="11" text-anchor="end">${p}</text>`; }
+    vis.forEach((abs,p)=>{ g+=`<text x="${X(p)}" y="${H-12}" fill="#8a93a0" font-size="10" text-anchor="middle">${p===0?"2R":p}</text>`; });
+    let faint=""; D.teams.filter(t=>!t.third).forEach(t=>{ faint+=`<path d="${pathOf(t.trend)}" fill="none" stroke="#7f8893" stroke-opacity=".28" stroke-width="1.2"/>`; });
+    chart.innerHTML = g + faint + `<g id="advtHl"></g>
+      <line id="advtCursor" y1="${m.t}" y2="${H-m.b}" stroke="#9aa3ad" stroke-opacity=".6" stroke-dasharray="3 4"/>
+      <circle id="advtDot" class="advt-dot" r="5" fill="#e9c46a"/>`;
+  }
+  function drawHl(){
+    let s="";
+    D.order.forEach(n=>{ if(n===_advSel) return; s+=`<path d="${pathOf(trendByName[n])}" fill="none" stroke="#7f8893" stroke-opacity=".42" stroke-width="1.4"/>`; });
+    s+=`<g id="advtSelLine"></g>`;   // per-segment line: played = green/red by that step, upcoming = white (set in renderAdvDay)
+    host.querySelector("#advtHl").innerHTML = s;
+  }
+  const bingo = host.querySelector("#advtBingo");
+  bingo.innerHTML = GL.map(L=>`<div class="advt-bc" data-g="${L}"><span class="g" style="${groupChipStyle(L)}">${L}</span><span class="m"></span><span class="n"></span><span class="l"></span></div>`).join("");
+  const bcells = {}; bingo.querySelectorAll(".advt-bc").forEach(el=> bcells[el.dataset.g]=el);
+  const tbody = host.querySelector("#advtMeta");
+
+  let sortedByVis=[], posByVis=[];
+  function computeRanks(){                            // rank all 12 contenders by CURRENT standing (pts → GD → GF) each step; top 8 = advancing
+    const cmp=abs=>((x,y)=>{ const dx=D.boards[x].days[abs].line, dy=D.boards[y].days[abs].line;
+      return dy[0]-dx[0] || dy[1]-dx[1] || dy[2]-dx[2] || (x<y?-1:1); });
+    sortedByVis = vis.map(abs=> [...D.order].sort(cmp(abs)));
+    posByVis = sortedByVis.map(ord=>{ const mp={}; ord.forEach((n,i)=> mp[n]=i+1); return mp; });
+  }
+  const inZoneAt=(p)=> (posByVis[p][_advSel]||99) <= 8;   // selected team within the top-8 (advancing) at step p
+  function renderTable(p){                            // live leaderboard re-sorted by R32% each step; top 8 = advancing
+    const abs=vis[p], rows=sortedByVis[p];
+    tbody.innerHTML = rows.map((n,i)=>{ const d=D.boards[n].days[abs], zone=i<8;
+      return `<tr class="advt-row ${zone?'adv zone':'out'}${i===7?' cut8':''}${n===_advSel?' sel':''}" data-team="${encodeURIComponent(n)}" title="${n}">
+        <td class="pos">${i+1}</td>
+        <td><span class="advt-gchip" style="${groupChipStyle(D.boards[n].group)}">${D.boards[n].group}</span></td>
+        <td class="tnm">${flagImg(n,"sm")}<span>${n}</span></td>
+        <td class="tnum">${d.line[0]}</td>
+        <td class="tnum">${d.line[1]>=0?'+':''}${d.line[1]}</td>
+        <td class="tpr">${Math.round(d.adv)}%</td></tr>`; }).join("");
+  }
+
+  function renderAdvDay(p){                           // p = visible position → abs checkpoint
+    _advDay=p; const abs=vis[p], b=D.boards[_advSel], day=b.days[abs], sel=trendByName[_advSel];
+    const okCol="#34c759", noCol="#ef4444";
+    const col = inZoneAt(p) ? okCol : noCol;          // colour by THIS step's R32% rank (top-8 → green) — matches the table
+    host.querySelector("#advtCursor").setAttribute("x1",X(p)); host.querySelector("#advtCursor").setAttribute("x2",X(p));
+    const dot=host.querySelector("#advtDot"); dot.setAttribute("cx",X(p)); dot.setAttribute("cy",Y(sel[abs])); dot.setAttribute("fill", col);
+    const segG=host.querySelector("#advtSelLine");                        // each played segment coloured by that step's rank
+    if (segG){
+      let segs="";
+      for(let q=0;q<M-1;q++){ const played=(q+1)<=p, c=played?(inZoneAt(q+1)?okCol:noCol):"#ffffff", op=played?"1":".6";
+        segs+=`<path d="M${X(q).toFixed(1)} ${Y(sel[vis[q]]).toFixed(1)} L${X(q+1).toFixed(1)} ${Y(sel[vis[q+1]]).toFixed(1)}" fill="none" stroke="${c}" stroke-opacity="${op}" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>`; }
+      segG.innerHTML=segs;
+    }
+    const cur=(D.marks||[])[abs], dayL=host.querySelector("#advtDayL");
+    let mk0=cur;                                     // show the match of THIS group's 3rd-place team (the wildcard-relevant one)
+    if (cur){ const third=(D.groupThirds[abs][cur.L]||{}).team;
+      const cand=third && (marksByGroup[cur.L]||[]).find(x=> x.h===third||x.a===third); if(cand) mk0=cand; }
+    if (mk0){ dayL.innerHTML = `${groupLabel(mk0.L)} · ${flagImg(mk0.h,"sm")}${mk0.h} <b>${mk0.hs}-${mk0.as}</b> ${mk0.a}${flagImg(mk0.a,"sm")}`; }
+    else { dayL.textContent = tr("advR2End"); }
+    const big=host.querySelector("#advtBig"); big.innerHTML = Math.round(day.adv)+'<small>%</small>'; big.style.color = col;
+    const pos=posByVis[p][_advSel], fin=(abs===N-1);
+    const st = fin ? `#${pos} · ${b.advanced?tr("clinched"):tr("advElimFixed")}`
+                   : `#${pos}/${D.order.length} · ${pos<=8?tr("advInZone"):tr("advOutZone")}`;
+    const stEl=host.querySelector("#advtStat"); stEl.textContent=st; stEl.style.color=col;
+    const favset=new Set(day.favL);
+    GL.forEach(L=>{ const el=bcells[L], mk=el.querySelector(".m"), nm=el.querySelector(".n"), ln=el.querySelector(".l");
+      if (L===b.group){ el.className="advt-bc own"; mk.textContent="●"; nm.innerHTML=flagImg(_advSel,"sm")+_advSel; ln.textContent=tr("advOwnGroup"); return; }
+      const c=D.groupThirds[abs][L];
+      if (!c.has){ el.className="advt-bc nodata"; mk.textContent="·"; nm.textContent="—"; ln.textContent=tr("advNoGame"); return; }
+      const fav=favset.has(L); el.className="advt-bc "+(fav?"fav":"risk"); mk.textContent=fav?"✓":"✕";
+      nm.innerHTML=flagImg(c.team,"sm")+c.team;
+      ln.textContent=`${c.pts}·${c.gd>=0?'+':''}${c.gd}·${c.gf}`; });
+    host.querySelector("#advtFav").textContent=`${day.fav}/11`;
+    host.querySelector("#advtProg").style.width = (M<=1 ? 100 : (p/(M-1)*100)) + "%";
+    renderTable(p);                                  // table re-sorts by current R32% each step
+  }
+  function playAnim(){
+    if (_advTimer){ clearInterval(_advTimer); _advTimer=null; }
+    if (_advReduce() || M<=1){ renderAdvDay(M-1); return; }   // reduced motion → jump to final
+    let p=0; renderAdvDay(0);
+    _advTimer=setInterval(()=>{ p++; if(p>=M){ clearInterval(_advTimer); _advTimer=null; return; } renderAdvDay(p); }, 600);
+  }
+  function selectAdv(n){ _advSel=n; const b=D.boards[n];
+    host.querySelector("#advtSel").innerHTML = `${flagImg(n,"sm")}${n} (${groupLabel(b.group)})`;
+    host.querySelector("#advtBingoT").textContent = `${n} · ${tr("advVsThirds")}`;
+    drawHl(); playAnim();                            // table highlight + rows handled by renderTable
+  }
+
+  tbody.addEventListener("click", e=>{ const row=e.target.closest(".advt-row"); if(row) selectAdv(decodeURIComponent(row.dataset.team)); });
+  host.querySelector("#advtReplay").addEventListener("click", playAnim);   // replay current team's run
+  // progress bar doubles as a scrubber — click/drag the dot to pick a match
+  const track=host.querySelector(".advt-prog"); let dragging=false;
+  const seek=(clientX)=>{ const r=track.getBoundingClientRect(); let f=r.width?(clientX-r.left)/r.width:0;
+    f=Math.max(0,Math.min(1,f)); if(_advTimer){ clearInterval(_advTimer); _advTimer=null; } renderAdvDay(Math.round(f*(M-1))); };
+  track.addEventListener("pointerdown", e=>{ dragging=true; try{track.setPointerCapture(e.pointerId);}catch(_){} seek(e.clientX); });
+  track.addEventListener("pointermove", e=>{ if(dragging) seek(e.clientX); });
+  track.addEventListener("pointerup", ()=> dragging=false);
+  track.addEventListener("pointercancel", ()=> dragging=false);
+  vis = computeVis(); M = vis.length; computeRanks(); drawChart();  // 12 group-resolution checkpoints (+ baseline)
+  // progress bar is keyboard-controllable: ←/→ step, Home/End jump
+  track.tabIndex = 0;
+  track.addEventListener("keydown", e=>{
+    let np = _advDay;
+    if (e.key==="ArrowRight"||e.key==="ArrowUp") np=Math.min(M-1,_advDay+1);
+    else if (e.key==="ArrowLeft"||e.key==="ArrowDown") np=Math.max(0,_advDay-1);
+    else if (e.key==="Home") np=0; else if (e.key==="End") np=M-1; else return;
+    e.preventDefault(); if(_advTimer){ clearInterval(_advTimer); _advTimer=null; } renderAdvDay(np);
+  });
+  selectAdv(_advSel);                               // initial team auto-plays
 }
 
 /* ---------- notifications / subscriptions (teams & matches) ---------- */
@@ -2476,13 +2765,17 @@ async function openTeamUrl(url){
   const fxHtml = fixtures.map(m => {
     const fin = m.status==="FINISHED", live = LIVE_STATUS.includes(m.status), decided = fin||live;
     const sh=m.score.home, sa=m.score.away;
-    const teamCell = (tm, win, right) => `<span class="fx-tm${right?" r":""}${tm.name===t.name?" fx-me":""}${decided&&win?" fx-win":""}">
+    const pens=(m.score||{}).pens;   // PK decides the winner when regulation is level
+    const hWin = decided && (sh>sa || (pens && pens.home>pens.away));
+    const aWin = decided && (sa>sh || (pens && pens.away>pens.home));
+    const teamCell = (tm, win, right) => `<span class="fx-tm${right?" r":""}${tm.name===t.name?" fx-me":""}${win?" fx-win":""}">
         <img class="fx-flag" src="${tm.crest||flagFb}" onerror="this.src='${flagFb}'"/><span class="fx-nm">${tm.tla||tm.name}</span></span>`;
-    const mid = decided ? `<span class="fx-sc">${sh??0} : ${sa??0}</span>` : `<span class="fx-sc fx-time">${tzTimeM(m)}</span>`;
-    const tag = live ? `<span class="pill live">LIVE</span>` : fin ? `<span class="pill ft">FT</span>` : `<span class="fx-sch">${tr("upcoming")}</span>`;
+    const penTxt = (decided&&pens) ? ` <span class="fx-pk">(${tr("pk")} ${pens.home??0}-${pens.away??0})</span>` : "";
+    const mid = decided ? `<span class="fx-sc">${sh??0} : ${sa??0}${penTxt}</span>` : `<span class="fx-sc fx-time">${tzTimeM(m)}</span>`;
+    const tag = live ? `<span class="pill live">LIVE</span>` : fin ? `<span class="pill ft">${pens?tr("pk"):"FT"}</span>` : `<span class="fx-sch">${tr("upcoming")}</span>`;
     return `<div class="fx" onclick="gotoMatch(${m.id})">
       <span class="fx-date">${fxDate(m)}</span>
-      ${teamCell(m.home, decided&&sh>sa, false)}${mid}${teamCell(m.away, decided&&sa>sh, true)}
+      ${teamCell(m.home, hWin, false)}${mid}${teamCell(m.away, aWin, true)}
       ${tag}</div>`;
   }).join("");
   // squad: photo + name + age, click → player detail

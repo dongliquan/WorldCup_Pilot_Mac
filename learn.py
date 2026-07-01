@@ -11,21 +11,14 @@ exact-score hit-rate and outcome hit-rate so the gain is interpretable.
 """
 import json
 import math
-import sys
 import urllib.request
-from typing import List, Dict, Any, Tuple
-from collections import defaultdict
 
 BASE = "http://127.0.0.1:8770"
 EDITIONS = [2026, 2022, 2018, 2014, 2010, 2006, 2002, 1998, 1994]
 
 # fixed, already-tuned outcome weights (must mirror PRED_DEFAULT / PRED_K in worldcup.html)
 W = dict(elo=6, home=3)
-SCALE, HOMEBASE = 250, 10  # Kept for reference, but not used in this script.
-
-MIN_LAMBDA = 0.2
-EPSILON = 1e-9
-ELO_K_FACTOR_BASE = 32
+SCALE, HOMEBASE = 250, 10
 
 
 def get(path):
@@ -33,15 +26,15 @@ def get(path):
         return json.loads(r.read().decode("utf-8"))
 
 
-def init_elo(rank: int) -> float:
+def init_elo(rank):
     return 1500 + (50 - min(max(rank or 60, 1), 130)) * 7
 
 
-def pois(k: int, l: float) -> float:
+def pois(k, l):
     return math.exp(-l) * l ** k / math.factorial(k)
 
 
-def edition_samples(year: int) -> List[Dict[str, Any]]:
+def edition_samples(year):
     """Replay one edition in date order, emitting per-match pre-kickoff state: Elo gap and the
     two sides' running attack/defence form (goals for/against per game BEFORE this match)."""
     data = get(f"/api/matches?year={year}")
@@ -65,7 +58,7 @@ def edition_samples(year: int) -> List[Dict[str, Any]]:
         # update Elo (margin-weighted) and running form
         ex = 1 / (1 + 10 ** ((ea - eh) / 400))
         s = 1.0 if sh > sa else 0.5 if sh == sa else 0.0
-        k = ELO_K_FACTOR_BASE * (math.log(abs(sh - sa) + 1) + 1)
+        k = 32 * (math.log(abs(sh - sa) + 1) + 1)
         elo[hn] = eh + k * (s - ex)
         elo[an] = ea + k * ((1 - s) - (1 - ex))
         form[hn] = {"p": fh["p"] + 1, "gf": fh["gf"] + sh, "ga": fh["ga"] + sa}
@@ -73,7 +66,7 @@ def edition_samples(year: int) -> List[Dict[str, Any]]:
     return out
 
 
-def lambdas(s: Dict[str, Any], P: Dict[str, float]) -> Tuple[float, float]:
+def lambdas(s, P):
     """Replicate computePrediction's scoreline lambdas with tunable params P."""
     dr = W["elo"] * ((s["eh"] - 1500) / 8 - (s["ea"] - 1500) / 8) + W["home"] * HOMEBASE + (60 if s["host"] else 0)
     tilt = max(-P["cap"], min(P["cap"], dr / P["tscale"]))
@@ -82,28 +75,28 @@ def lambdas(s: Dict[str, Any], P: Dict[str, float]) -> Tuple[float, float]:
     dfnh = fh["ga"] / fh["p"] if fh["p"] > 0 else P["avg"]
     atka = fa["gf"] / fa["p"] if fa["p"] > 0 else P["avg"]
     dfna = fa["ga"] / fa["p"] if fa["p"] > 0 else P["avg"]
-    lh = max(MIN_LAMBDA, ((atkh + dfna) / 2) * (1 + tilt))
-    la = max(MIN_LAMBDA, ((atka + dfnh) / 2) * (1 - tilt))
+    lh = max(0.2, ((atkh + dfna) / 2) * (1 + tilt))
+    la = max(0.2, ((atka + dfnh) / 2) * (1 - tilt))
     return lh, la
 
 
-def mode_score(lh: float, la: float) -> Tuple[int, int]:
+def mode_score(lh, la):
     best, sH, sA = -1, 1, 1
     for i in range(8):
         for j in range(8):
             pr = pois(i, lh) * pois(j, la)
-            if pr > best + EPSILON or (pr > best - EPSILON and (i + j) > (sH + sA)):
+            if pr > best + 1e-9 or (pr > best - 1e-9 and (i + j) > (sH + sA)):
                 best = max(best, pr); sH, sA = i, j
     return sH, sA
 
 
-def evaluate(samples: List[Dict[str, Any]], P: Dict[str, float]) -> Dict[str, Any]:
+def evaluate(samples, P):
+    import collections
     nll = exact = ohit = 0
-    dist = defaultdict(int)
+    dist = collections.Counter()
     for s in samples:
         lh, la = lambdas(s, P)
-        nll += -math.log(max(EPSILON, pois(s["sh"], lh)))
-        nll += -math.log(max(EPSILON, pois(s["sa"], la)))
+        nll += -math.log(max(1e-9, pois(s["sh"], lh))) - math.log(max(1e-9, pois(s["sa"], la)))
         sH, sA = mode_score(lh, la)
         dist[f"{sH}-{sA}"] += 1
         if sH == s["sh"] and sA == s["sa"]:
@@ -116,7 +109,7 @@ def evaluate(samples: List[Dict[str, Any]], P: Dict[str, float]) -> Dict[str, An
     return {"nll": nll / n, "exact": exact / n, "ohit": ohit / n, "dist": dist, "variety": len(dist)}
 
 
-def score_objective(r: Dict[str, Any]) -> float:
+def score_objective(r):
     """What we MAXIMISE: get the actual scoreline right (exact) and at least the winner right
     (outcome), with a small bonus for producing a realistic SPREAD of scorelines (not all 1-0).
     NLL is only a mild tie-breaker — pure NLL collapses everything to low scores."""
@@ -129,10 +122,10 @@ def main():
         try:
             s = edition_samples(y)
             samples += s
-            print(f"  {y}: {len(s)} matches", file=sys.stderr)
+            print(f"  {y}: {len(s)} matches")
         except Exception as e:
-            print(f"  {y}: skip ({e})", file=sys.stderr)
-    print(f"total: {len(samples)} matches\n", file=sys.stderr)
+            print(f"  {y}: skip ({e})")
+    print(f"total: {len(samples)} matches\n")
 
     base = {"avg": 1.35, "tscale": 250, "cap": 0.85}
     b = evaluate(samples, base)
@@ -152,7 +145,7 @@ def main():
     print(f"LEARNED {P} -> exact={a['exact']:.3f} outcome={a['ohit']:.3f} "
           f"NLL={a['nll']:.3f} variety={a['variety']}")
     top = ", ".join(f"{k}:{v}" for k, v in a["dist"].most_common(8))
-    print(f"Predicted-score spread (top 8): {top}")
+    print(f"predicted-score spread (top 8): {top}")
     print(f"\napply to worldcup.html: PRED_K.avg={P['avg']}, tilt cap={P['cap']}, tilt scale={P['tscale']}")
     json.dump(P, open("learned_params.json", "w"))
 

@@ -8,6 +8,8 @@ block_cipher = None
 datas = [
     ('worldcup.html', '.'),
     ('assets', 'assets'),
+    ('icon.icns', '.'),          # runtime Dock icon (FIFA 26 emblem) for the frozen app
+    ('icon.ico', '.'),
 ]
 
 a = Analysis(
