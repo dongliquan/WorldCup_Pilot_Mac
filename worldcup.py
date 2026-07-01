@@ -1,16 +1,17 @@
 """
-World Cup Pilot — Windows 11 desktop launcher.
+World Cup Pilot — macOS desktop launcher.
 
 Runs the local HTTP server (server.py) in a background thread and opens a
-native WebView2 (Edge) window pointing at the single-page UI. All data comes
-from ESPN (no API token required). Local / personal use only.
+native WebKit window pointing at the single-page UI. Same feature set as the
+Windows edition; platform-specific bits (notifications, window chrome) adapt
+at runtime. All data comes from ESPN (no API token required). Personal use only.
 
 Dev run:
-    pip install pywebview pyinstaller
-    python worldcup.py
+    python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+    .venv/bin/python worldcup.py
 
-Build a single-file .exe (see worldcup_win.spec):
-    pyinstaller --noconfirm worldcup_win.spec
+Build a .app bundle (see worldcup.spec / build.sh):
+    ./build.sh          # -> dist/World Cup Pilot.app  (icon from icon.icns)
 """
 import ctypes
 import errno
@@ -228,9 +229,21 @@ def wait_until_ready(timeout=8.0):
 
 def set_app_icon():
     """Windows: the taskbar/window icon comes from the .exe icon (icon.ico, set in
-    the PyInstaller spec), so nothing to do at runtime. Kept as the webview.start
-    callback for cross-platform parity."""
-    return
+    the PyInstaller spec), so nothing to do at runtime.
+    macOS: dev runs show Python's default Dock icon (the built .app uses icon.icns
+    from the spec); set the running app's Dock icon to the FIFA emblem at runtime."""
+    if sys.platform != "darwin":
+        return
+    try:
+        from AppKit import NSApplication, NSImage
+        for name in ("icon.icns", os.path.join("assets", "icon.png")):
+            p = os.path.join(app_root(), name)
+            if os.path.exists(p):
+                img = NSImage.alloc().initByReferencingFile_(p)
+                NSApplication.sharedApplication().setApplicationIconImage_(img)
+                break
+    except Exception as e:
+        print(f"[warn] could not set dock icon: {e}")
 
 
 class Api:

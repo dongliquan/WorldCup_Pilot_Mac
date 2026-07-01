@@ -1,29 +1,29 @@
 # World Cup Pilot
 
 로컬/개인용 FIFA 월드컵 뷰어 + **예측 엔진**. `pywebview` 네이티브 창 + 백그라운드 로컬 서버(`127.0.0.1:8770`) +
-단일 HTML UI + PyInstaller 단일 실행 파일 패턴입니다. **무료 공개 소스만** 조합해 일정·결과·순위·대진·선수·영상과
+단일 HTML UI + PyInstaller `.app` 번들 패턴입니다. **무료 공개 소스만** 조합해 일정·결과·순위·대진·선수·영상과
 **자체 예측·AI 예측·예측 정확도 비교**까지 보여주며, **역대 월드컵(1930~2026)** 을 회차 선택으로 볼 수 있습니다.
-**Windows(.exe) / macOS(.app) 크로스플랫폼.** 상용 배포 용도가 아닙니다.
+**macOS(.app) 전용.** 기능은 Windows 판(`WorldCup_Pilot`)과 동일합니다. 상용 배포 용도가 아닙니다.
 
 ## 구성
 
 | 파일 | 역할 |
 |------|------|
-| `worldcup.py`   | 런처 — 로컬 서버를 스레드로 띄우고 네이티브 창(WebView2/WebKit)을 엶. `.exe`/`.app` 자동 판별, 데스크톱 알림, 영상 팝업 |
+| `worldcup.py`   | 런처 — 로컬 서버를 스레드로 띄우고 네이티브 WebKit 창을 엶. Dock 아이콘, 데스크톱 알림(osascript), 영상 팝업, 시작 시 정적 데이터 프리빌드 |
 | `server.py`     | `127.0.0.1:8770` 로컬 서버 — `/`(UI) + `/api/*`(여러 소스 프록시·정규화·디스크 캐시·예측·튜닝) |
 | `worldcup.html` | 단일 페이지 UI (다크/라이트, 일정·조별·대진·예측성적, 팀/선수/경기 상세, 예측·예상 라인업, 영상, 알림, 4개국어) |
 | `config.json`   | 시즌·캐시 설정 + (선택) AI 키 — **gitignore됨** |
 | `assets/`       | 정적 데이터(JSON) + 아이콘/로고 |
 | `model_params.json` / `tune_state.json` | 자가 튜닝된 예측 파라미터 + 마지막 튜닝 지문 (캐시 밖, 영구) |
-| `worldcup_win.spec` | **Windows** 단일 exe 빌드 |
 | `worldcup.spec` / `build.sh` | **macOS** .app 번들 빌드 |
+| `icon.ico` / `icon.icns` | 앱 아이콘 원본(FIFA 26 엠블럼) / 그로부터 생성한 macOS 번들 아이콘 |
 
 ### assets (정적 데이터 — 모두 편집 가능)
 - `country_info.json` — 국가별 수도·인구·면적·ISO2(국기/지도)·월드컵 역대 성적
 - `fifa_ranking.json` / `fifa_ranking_history.json` — 현재 / 회차별 FIFA 랭킹(1993~)
 - `venues.json` — 개최 도시→시간대 + 경기 id→도시 매핑(현지시간용)
 - `wc_editions.json` — 역대 대회(개최국·우승/준우승·MVP·골든부트)
-- `icon.png` / `icon.ico` / `logo.png` — 앱 아이콘 + 헤더 엠블럼
+- `icon.png` / `logo.png` — 대체 아이콘 + 헤더 엠블럼 (앱 아이콘은 루트 `icon.ico`→`icon.icns`)
 
 ## 데이터 소스 (전부 무료, 토큰 불필요 — football-data.org / API-Football 미사용)
 
@@ -106,18 +106,17 @@
 
 **개발 모드**
 ```
-python -m venv .venv && .venv/Scripts/pip install -r requirements.txt   # (macOS: .venv/bin/pip)
-.venv/Scripts/python worldcup.py
+python3.12 -m venv .venv && .venv/bin/pip install -r requirements.txt
+.venv/bin/python worldcup.py
 ```
-서버만: `python server.py` → http://127.0.0.1:8770
+서버만: `.venv/bin/python server.py` → http://127.0.0.1:8770
 
-**Windows 빌드**
-```
-pyinstaller --noconfirm worldcup_win.spec      # -> dist\WorldCupPilot.exe (단일 파일)
-```
+> 시스템 Python 3.9는 pyobjc 빌드가 안 돼 **brew Python 3.12** 로 `.venv` 사용.
+
 **macOS 빌드**
 ```
-./build.sh                                      # -> dist/World Cup Pilot.app
+./build.sh                                      # -> dist/World Cup Pilot.app (아이콘: icon.icns)
+open "dist/World Cup Pilot.app"
 ```
 
 ## API (로컬)
@@ -132,4 +131,4 @@ POST: `/api/refresh`(데이터 재검증 + 모델 재튜닝) · `/api/grade-ai`(
 - 캐시: `cache/*.json` + 사진 `cache/img/`. 헤더 ↻ = 재검증 + 모델 재튜닝(캐시는 안 비움 → UI 안 깜빡임).
 - 정적 JSON(`assets/*.json`) 값이 틀리면 직접 편집 → 재시작 시 반영.
 - TheSportsDB 무료 한도가 빡빡 → **요청 간 전역 스로틀** + 사진 백그라운드 워밍(받는 즉시 영구 저장).
-- **배포**: `dist/` 폴더(exe + config.json + cache)를 압축. 배포 시 `config.json`의 실제 키는 반드시 제거.
+- **배포**: `dist/World Cup Pilot.app` 을 압축/전달. 배포 시 `config.json`의 실제 키는 반드시 제거.
