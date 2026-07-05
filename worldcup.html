@@ -1687,7 +1687,7 @@ function renderChampRace(){
   const done = (D.done!=null ? D.done : M-1);          // last round with data (current frontier)
   if (!_champSel || !teams.find(t=>t.name===_champSel)) _champSel = teams[0].name;
   if (_champStep==null || _champStep>done) _champStep = done;   // default to the current frontier
-  if (_champTimer){ clearInterval(_champTimer); _champTimer=null; }
+  if (_champTimer){ cancelAnimationFrame(_champTimer); _champTimer=null; }
   const trendOf = {}; teams.forEach(t=> trendOf[t.name]=t.trend);
   const RLBL={GROUPS:tr("groups"),LAST_32:tr("st32"),LAST_16:tr("st16"),QUARTER_FINALS:tr("stQF"),SEMI_FINALS:tr("stSF"),FINAL:tr("final")};
   const RSH={GROUPS:"·",LAST_32:"R32",LAST_16:"R16",QUARTER_FINALS:"QF",SEMI_FINALS:"SF",FINAL:"F"};
@@ -1762,6 +1762,17 @@ function renderChampRace(){
   const elimTime = name => { if(name in _elimT) return _elimT[name]; let t="";
     (state.matches||[]).forEach(m=>{ if(((m.home||{}).name===name||(m.away||{}).name===name) && m.status==="FINISHED" && m.utcDate && m.utcDate>t) t=m.utcDate; });
     return _elimT[name]=t; };
+  function drawFieldFrac(prog){                        // smooth whole-field draw up to a fractional checkpoint `prog`
+    let s="";
+    teams.forEach(t=>{ const arr=t.trend, el=elimIdx(t.name);
+      for(let q=0;q<M-1;q++){ if(q>=prog) break; const a=arr[q], b=arr[q+1]; if(a==null||b==null) break;
+        const full=(q+1)<=prog, f=full?1:(prog-q);                       // partial fraction for the in-progress segment
+        const ex=X(q)+(X(q+1)-X(q))*f, ey=Y(a)+(Y(b)-Y(a))*f;
+        const alive=(q+1)<el, c=alive?okCol:noCol;
+        s+=`<path d="M${X(q).toFixed(1)} ${Y(a).toFixed(1)} L${ex.toFixed(1)} ${ey.toFixed(1)}" fill="none" stroke="${c}" stroke-opacity="${alive?'.5':'.9'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+        if(!full) break; if((q+1)>=el) break; }
+    });
+    host.querySelector("#crHl").innerHTML=s; }
   function renderStep(p){
     _champStep=p; const allMode=!_champSel;
     const ranked=[...teams].sort((a,b)=>{ const av=a.trend[p]??0, bv=b.trend[p]??0;   // by title odds; ties (0% out) → most recently played first
@@ -1790,10 +1801,22 @@ function renderChampRace(){
   }
   function playAnim(){
     _champSel=null;                       // replay shows the whole field, not one selected team
-    if (_champTimer){ clearInterval(_champTimer); _champTimer=null; }
+    if (_champTimer){ cancelAnimationFrame(_champTimer); _champTimer=null; }
     if (done<=0){ renderStep(done); return; }
-    let p=0; renderStep(0);
-    _champTimer=setInterval(()=>{ p++; if(p>=done){ renderStep(done); clearInterval(_champTimer); _champTimer=null; return; } renderStep(p); }, 1100);
+    const PER=10000;                      // 10s per knockout round — smooth line movement
+    const cur=host.querySelector("#crCursor"), prog=host.querySelector("#crProg");
+    let start=null, lastCi=-1;
+    function frame(ts){
+      if(start==null) start=ts;
+      const t=Math.min(done, (ts-start)/PER);
+      const ci=Math.min(done, Math.round(t));
+      if(ci!==lastCi){ lastCi=ci; renderStep(ci); }   // table / leader panel update at each checkpoint
+      drawFieldFrac(t);                                 // line grows smoothly toward the next round
+      const xn=X(t); cur.setAttribute("x1",xn); cur.setAttribute("x2",xn);
+      prog.style.width=(M<=1?100:(t/(M-1)*100))+"%";
+      if(t<done){ _champTimer=requestAnimationFrame(frame); } else { _champTimer=null; renderStep(done); }
+    }
+    _champTimer=requestAnimationFrame(frame);
   }
   function selectChamp(n){ _champSel=n;
     host.querySelector("#crSel").innerHTML = `${flagImg(n,'sm')}${n}`;
@@ -1802,7 +1825,7 @@ function renderChampRace(){
   host.querySelector("#crReplay").addEventListener("click", playAnim);
   const track=host.querySelector(".advt-prog"); let dragging=false;
   const seek=x=>{ const r=track.getBoundingClientRect(); let f=r.width?(x-r.left)/r.width:0; f=Math.max(0,Math.min(1,f));
-    if(_champTimer){clearInterval(_champTimer);_champTimer=null;} renderStep(Math.min(done, Math.round(f*(M-1)))); };
+    if(_champTimer){cancelAnimationFrame(_champTimer);_champTimer=null;} renderStep(Math.min(done, Math.round(f*(M-1)))); };
   track.addEventListener("pointerdown", e=>{ dragging=true; try{track.setPointerCapture(e.pointerId);}catch(_){} seek(e.clientX); });
   track.addEventListener("pointermove", e=>{ if(dragging) seek(e.clientX); });
   track.addEventListener("pointerup", ()=> dragging=false);
@@ -1812,7 +1835,7 @@ function renderChampRace(){
     if(e.key==="ArrowRight"||e.key==="ArrowUp") np=Math.min(done,_champStep+1);
     else if(e.key==="ArrowLeft"||e.key==="ArrowDown") np=Math.max(0,_champStep-1);
     else if(e.key==="Home") np=0; else if(e.key==="End") np=done; else return;
-    e.preventDefault(); if(_champTimer){clearInterval(_champTimer);_champTimer=null;} renderStep(np); });
+    e.preventDefault(); if(_champTimer){cancelAnimationFrame(_champTimer);_champTimer=null;} renderStep(np); });
   selectChamp(_champSel);   // render at the current (latest) checkpoint; replay ↻ animates
 }
 
