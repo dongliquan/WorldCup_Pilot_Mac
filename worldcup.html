@@ -1729,10 +1729,13 @@ function renderChampRace(){
       s+=`<path d="M${X(q).toFixed(1)} ${Y(sel[q]).toFixed(1)} L${X(q+1).toFixed(1)} ${Y(sel[q+1]).toFixed(1)}" fill="none" stroke="${c}" stroke-opacity="${op}" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>`; }
     host.querySelector("#crHl").innerHTML=s; }
   const tbody=host.querySelector("#crMeta");
-  function drawAll(p){ let s="";                       // whole-field mode: every team's line revealed up to p
-    teams.forEach(t=>{ let d="",on=false;
-      for(let q=0;q<=p;q++){ const v=t.trend[q]; if(v==null) break; d+=(on?"L":"M")+X(q).toFixed(1)+" "+Y(v).toFixed(1)+" "; on=true; if(v===0) break; }
-      if(d) s+=`<path d="${d}" fill="none" stroke="#8a93a0" stroke-opacity=".6" stroke-width="1.6"/>`; });
+  function drawAll(p){ let s="";                       // whole-field mode: every team, segment green (alive) / red (0% = eliminated)
+    teams.forEach(t=>{ const arr=t.trend;
+      for(let q=0;q<p;q++){ const a=arr[q], b=arr[q+1]; if(a==null||b==null) break;
+        const alive=(b>0.05), c=alive?okCol:noCol;
+        s+=`<path d="M${X(q).toFixed(1)} ${Y(a).toFixed(1)} L${X(q+1).toFixed(1)} ${Y(b).toFixed(1)}" fill="none" stroke="${c}" stroke-opacity="${alive?'.5':'.9'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+        if(b===0) break; }
+    });
     host.querySelector("#crHl").innerHTML=s; }
   function renderStep(p){
     _champStep=p; const allMode=!_champSel;
