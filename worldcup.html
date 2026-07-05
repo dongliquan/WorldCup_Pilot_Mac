@@ -1729,22 +1729,38 @@ function renderChampRace(){
       s+=`<path d="M${X(q).toFixed(1)} ${Y(sel[q]).toFixed(1)} L${X(q+1).toFixed(1)} ${Y(sel[q+1]).toFixed(1)}" fill="none" stroke="${c}" stroke-opacity="${op}" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>`; }
     host.querySelector("#crHl").innerHTML=s; }
   const tbody=host.querySelector("#crMeta");
+  function drawAll(p){ let s="";                       // whole-field mode: every team's line revealed up to p
+    teams.forEach(t=>{ let d="",on=false;
+      for(let q=0;q<=p;q++){ const v=t.trend[q]; if(v==null) break; d+=(on?"L":"M")+X(q).toFixed(1)+" "+Y(v).toFixed(1)+" "; on=true; if(v===0) break; }
+      if(d) s+=`<path d="${d}" fill="none" stroke="#8a93a0" stroke-opacity=".6" stroke-width="1.6"/>`; });
+    host.querySelector("#crHl").innerHTML=s; }
   function renderStep(p){
-    _champStep=p; const sel=trendOf[_champSel];
+    _champStep=p; const allMode=!_champSel;
     const ranked=[...teams].sort((a,b)=>(b.trend[p]??0)-(a.trend[p]??0));
     tbody.innerHTML = ranked.map((t,i)=>{ const pv=t.trend[p]??0;
       return `<tr class="advt-row${t.name===_champSel?' sel':''}${pv<=0.05?' out':''}" data-team="${encodeURIComponent(t.name)}" title="${t.name}">
         <td class="pos">${i+1}</td><td class="tnm">${flagImg(t.name,'sm')}<span>${t.name}</span></td>
         <td class="tpr">${pv.toFixed(1)}%</td></tr>`; }).join("");
     host.querySelector("#crCursor").setAttribute("x1",X(p)); host.querySelector("#crCursor").setAttribute("x2",X(p));
-    const dot=host.querySelector("#crDot"); dot.setAttribute("cx",X(p)); dot.setAttribute("cy",Y(sel[p])); dot.setAttribute("fill", aliveAt(p)?okCol:noCol); drawSel(p);
+    const dot=host.querySelector("#crDot"), lead=ranked[0];
+    if (allMode){                                      // replay → no single selection, show the whole field
+      drawAll(p); dot.setAttribute("opacity","0");
+      host.querySelector("#crSel").innerHTML = lead ? `${flagImg(lead.name,'sm')}${lead.name}` : "–";
+      host.querySelector("#crBig").innerHTML = (lead?(lead.trend[p]??0):0).toFixed(1)+"<small>%</small>";
+      host.querySelector("#crStat").textContent = `#1/${teams.length}`;
+    } else {
+      const sel=trendOf[_champSel];
+      drawSel(p); dot.setAttribute("opacity","1");
+      dot.setAttribute("cx",X(p)); dot.setAttribute("cy",Y(sel[p])); dot.setAttribute("fill", aliveAt(p)?okCol:noCol);
+      host.querySelector("#crBig").innerHTML = (sel[p]??0).toFixed(1)+"<small>%</small>";
+      const rank = ranked.findIndex(t=>t.name===_champSel)+1;
+      host.querySelector("#crStat").textContent = `#${rank}/${teams.length}`;
+    }
     host.querySelector("#crLbl").textContent = lblFull(D.labels[p]);
-    host.querySelector("#crBig").innerHTML = (sel[p]).toFixed(1)+"<small>%</small>";
-    const rank = ranked.findIndex(t=>t.name===_champSel)+1;
-    host.querySelector("#crStat").textContent = `#${rank}/${teams.length}`;
     host.querySelector("#crProg").style.width = (M<=1?100:(p/(M-1)*100))+"%";
   }
   function playAnim(){
+    _champSel=null;                       // replay shows the whole field, not one selected team
     if (_champTimer){ clearInterval(_champTimer); _champTimer=null; }
     if (done<=0){ renderStep(done); return; }
     let p=0; renderStep(0);
