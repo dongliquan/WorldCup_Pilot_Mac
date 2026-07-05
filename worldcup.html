@@ -2670,7 +2670,12 @@ function renderGroups(){
     state.groups.forEach(g => { const c=classifyGroup(g.table);
       c.black.forEach(n=>_elimSet.add(n)); c.green.forEach(n=>_clinchSet.add(n)); });
   } else {
-    state.groups.forEach(g => (g.table||[]).forEach((r,i)=>{ if(i<2) _clinchSet.add(r.team.name); }));  // past: only group top 2 advance
+    // past edition → mark whoever ACTUALLY reached the next round (knockout / 2nd group stage / final pool),
+    // which reflects that year's real format (top 2, top 2 + best 3rd, group winners, etc.) instead of assuming top 2
+    const advanced = new Set();
+    (state.matches||[]).forEach(m=>{ if(m.stage!=="GROUP_STAGE" && m.home && m.away){
+      if(m.home.name) advanced.add(m.home.name); if(m.away.name) advanced.add(m.away.name); } });
+    state.groups.forEach(g => (g.table||[]).forEach(r=>{ if(advanced.has(r.team.name)) _clinchSet.add(r.team.name); }));
   }
   main.innerHTML = `<div class="groups">` + state.groups.map(g=>{
     const letter = (g.group||"").replace(/group/i,"").trim().slice(-1).toUpperCase() || "·";
