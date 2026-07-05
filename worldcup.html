@@ -1793,7 +1793,7 @@ function renderChampRace(){
     if (_champTimer){ clearInterval(_champTimer); _champTimer=null; }
     if (done<=0){ renderStep(done); return; }
     let p=0; renderStep(0);
-    _champTimer=setInterval(()=>{ p++; if(p>=done){ renderStep(done); clearInterval(_champTimer); _champTimer=null; return; } renderStep(p); }, 650);
+    _champTimer=setInterval(()=>{ p++; if(p>=done){ renderStep(done); clearInterval(_champTimer); _champTimer=null; return; } renderStep(p); }, 1100);
   }
   function selectChamp(n){ _champSel=n;
     host.querySelector("#crSel").innerHTML = `${flagImg(n,'sm')}${n}`;
