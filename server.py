@@ -2572,8 +2572,9 @@ def compute_accuracy():
         else:
             rnd = None
             rkey = ("k", stage)
-            # skip not-yet-decided knockout slots (placeholder names until the bracket is set)
+            # knockout slot whose teams aren't set yet → still show the round, as a TBD row (no prediction)
             if not finished and (not (hn and an) or _is_placeholder_team(hn) or _is_placeholder_team(an)):
+                grp(rkey, rnd, stage)["matches"].append({"home": "TBD", "away": "TBD", "pending": True})
                 continue
         g = grp(rkey, rnd, stage)
         if finished:

@@ -2598,11 +2598,15 @@ function _cardsStr(t){ const p=[]; if(t.yc)p.push(`🟨${t.yc}`); if(t.rc)p.push
 function renderGroups(){
   const main = document.getElementById("main");
   if (!state.groups.length){ main.innerHTML = `<div class="empty"><div class="big">▦</div>${tr("noStandings")}</div>`; return; }
-  computeGroupTables();   // for the best-8 third-place advancement set
-  const adv3 = _GT.adv3 || new Set();
-  if (_advOdds===undefined){ _advOdds=null;   // fetch once, then re-render with the probabilities
-    fetch("/api/advodds").then(r=>r.json()).then(o=>{ _advOdds=(o&&o.adv)||{}; _advPos=(o&&o.pos)||{}; _could3=new Set((o&&o.could3)||[]); if(state.view==="group") renderGroups(); }).catch(()=>{ _advOdds={}; _advPos={}; _could3=new Set(); }); }
-  const probOf = nm => (_advOdds && _advOdds[nm]!=null) ? _advOdds[nm] : null;
+  const cur = state.editionCurrent !== false;   // past editions: no Round of 32 / 3rd-place — only group top 2 advance
+  let adv3 = new Set(), probOf = () => null;
+  if (cur){
+    computeGroupTables();   // for the best-8 third-place advancement set
+    adv3 = _GT.adv3 || new Set();
+    if (_advOdds===undefined){ _advOdds=null;   // fetch once, then re-render with the probabilities
+      fetch("/api/advodds").then(r=>r.json()).then(o=>{ _advOdds=(o&&o.adv)||{}; _advPos=(o&&o.pos)||{}; _could3=new Set((o&&o.could3)||[]); if(state.view==="group") renderGroups(); }).catch(()=>{ _advOdds={}; _advPos={}; _could3=new Set(); }); }
+    probOf = nm => (_advOdds && _advOdds[nm]!=null) ? _advOdds[nm] : null;
+  }
   // ===========================================================================
   // Advancement classification — 2026 format: 12 groups → top 2 of each (24)
   // + the 8 best 3rd-placed teams = Round of 32. Every team is EXACTLY one of:
@@ -2662,8 +2666,12 @@ function renderGroups(){
     return {green, black};
   };
   _elimSet = new Set(); _clinchSet = new Set();
-  state.groups.forEach(g => { const c=classifyGroup(g.table);
-    c.black.forEach(n=>_elimSet.add(n)); c.green.forEach(n=>_clinchSet.add(n)); });
+  if (cur){
+    state.groups.forEach(g => { const c=classifyGroup(g.table);
+      c.black.forEach(n=>_elimSet.add(n)); c.green.forEach(n=>_clinchSet.add(n)); });
+  } else {
+    state.groups.forEach(g => (g.table||[]).forEach((r,i)=>{ if(i<2) _clinchSet.add(r.team.name); }));  // past: only group top 2 advance
+  }
   main.innerHTML = `<div class="groups">` + state.groups.map(g=>{
     const letter = (g.group||"").replace(/group/i,"").trim().slice(-1).toUpperCase() || "·";
     const rows = (g.table||[]).map((r,i)=>{ const elim = _elimSet.has(r.team.name); const clinch = _clinchSet.has(r.team.name);
@@ -2671,7 +2679,7 @@ function renderGroups(){
       <td class="pos">${r.position??i+1}</td>
       <td class="team-col"><div class="gteam" onclick="openTeamName('${encodeURIComponent(r.team.name)}')">
         <img src="${r.team.crest||flagFb}" onerror="this.src='${flagFb}'"/>
-        <span class="gnm">${r.team.name}</span>${r.team.rank?`<span class="rk">${r.team.rank}</span>`:""}${i===2&&!elim&&!clinch?`<span class="adv-prob" title="${tr("adv3In")}">${probOf(r.team.name)!=null?probOf(r.team.name)+"%":"…"}</span>`:""}${elim?`<span class="elim-tag">${tr("eliminated")}</span>`:""}</div></td>
+        <span class="gnm">${r.team.name}</span>${r.team.rank?`<span class="rk">${r.team.rank}</span>`:""}${cur&&i===2&&!elim&&!clinch?`<span class="adv-prob" title="${tr("adv3In")}">${probOf(r.team.name)!=null?probOf(r.team.name)+"%":"…"}</span>`:""}${elim?`<span class="elim-tag">${tr("eliminated")}</span>`:""}</div></td>
       <td>${r.playedGames??0}</td><td class="gkey">${r.won??0}</td><td>${r.draw??0}</td><td>${r.lost??0}</td>
       <td class="gkey">${r.goalsFor??0}</td><td>${r.goalsAgainst??0}</td>
       <td>${(r.goalDifference>0?"+":"")+(r.goalDifference??0)}</td>
@@ -2684,16 +2692,17 @@ function renderGroups(){
         <th>#</th><th class="team-col">${tr("thTeam")}</th><th>${tr("thP")}</th><th class="gkey">${tr("thW")}</th><th>${tr("thD")}</th><th>${tr("thL")}</th><th class="gkey">${tr("thGF")}</th><th>${tr("thGA")}</th><th>${tr("thGD")}</th><th>${tr("thPts")}</th>
       </tr></thead><tbody>${rows}</tbody></table></div>`;
   }).join("") + `</div>`
-    + `<div class="groups-note">
+    // R32 format / 3rd-place explanations + advancement race — current edition only (past: top 2 advance, no R32)
+    + (cur ? `<div class="groups-note">
       <div class="gn-legend"><span class="gn-q">■</span> ${tr("advAuto")} (1·2)　<span class="gn-q3">■</span> ${tr("adv3In")}　<span class="gn-x">■</span> ${tr("eliminated")}</div>
       <div class="gn-t">${tr("advFormat")}</div>
       <div class="gn-sub">${tr("rankGroupTitle")}</div>
-      <ol class="gn-rule">${(GROUP_CRIT[LANG]||GROUP_CRIT.en).map(c=>`<li>${c}</li>`).join("")}</ol></div>`
-    + (state.editionCurrent !== false ? `<div id="advtrend" class="advt-wrap"></div>` : "")   // R32 advancement race: current edition only
-    + `<div class="groups-note">
+      <ol class="gn-rule">${(GROUP_CRIT[LANG]||GROUP_CRIT.en).map(c=>`<li>${c}</li>`).join("")}</ol></div>` : "")
+    + (cur ? `<div id="advtrend" class="advt-wrap"></div>` : "")
+    + (cur ? `<div class="groups-note">
       <div class="gn-sub">${tr("rankThirdTitle")}</div>
-      <ol class="gn-rule">${(THIRD_CRIT[LANG]||THIRD_CRIT.en).map(c=>`<li>${c}</li>`).join("")}</ol></div>`;
-  if (state.editionCurrent !== false) renderAdvTrend();
+      <ol class="gn-rule">${(THIRD_CRIT[LANG]||THIRD_CRIT.en).map(c=>`<li>${c}</li>`).join("")}</ol></div>` : "");
+  if (cur) renderAdvTrend();
 }
 
 /* ---------- advancement trend: day-by-day R32 race + 3rd-place wildcard bingo ---------- */
