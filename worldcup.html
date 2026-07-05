@@ -1725,9 +1725,13 @@ function renderChampRace(){
   let g="";
   for(let p=0;p<=maxP;p+=gstep){ g+=`<line x1="${mg.l}" y1="${Y(p)}" x2="${W-mg.r}" y2="${Y(p)}" stroke="#7f8893" stroke-opacity=".18"/><text x="${mg.l-6}" y="${Y(p)+4}" fill="#8a93a0" font-size="11" text-anchor="end">${p}</text>`; }
   for(let p=0;p<M;p++){ const fut=p>done; g+=`<text x="${X(p)}" y="${H-12}" fill="${fut?'#5b636d':'#8a93a0'}" font-size="11" text-anchor="middle">${lblShort(D.labels[p])}</text>`; }
-  let faint=""; teams.forEach(t=>{ faint+=`<path d="${pathOf(t.trend)}" fill="none" stroke="#7f8893" stroke-opacity=".26" stroke-width="1.2"/>`; });
-  chart.innerHTML = g+faint+`<g id="crHl"></g><line id="crCursor" y1="${mg.t}" y2="${H-mg.b}" stroke="#9aa3ad" stroke-opacity=".6" stroke-dasharray="3 4"/><circle id="crDot" r="5" fill="#e9c46a"/>`;
   const okCol="#34c759", noCol="#ef4444";                       // green = still alive, red = eliminated
+  let faint=""; teams.forEach(t=>{ const arr=t.trend;           // context lines for EVERY team, coloured green/red per segment
+    for(let q=0;q<M-1;q++){ const a=arr[q], b=arr[q+1]; if(a==null||b==null) break;
+      faint+=`<path d="M${X(q).toFixed(1)} ${Y(a).toFixed(1)} L${X(q+1).toFixed(1)} ${Y(b).toFixed(1)}" fill="none" stroke="${(b>0.05)?okCol:noCol}" stroke-opacity=".32" stroke-width="1.4" stroke-linecap="round"/>`;
+      if(b===0) break; }
+  });
+  chart.innerHTML = g+faint+`<g id="crHl"></g><line id="crCursor" y1="${mg.t}" y2="${H-mg.b}" stroke="#9aa3ad" stroke-opacity=".6" stroke-dasharray="3 4"/><circle id="crDot" r="5" fill="#e9c46a"/>`;
   const aliveAt=q=>(trendOf[_champSel][q]??0)>0.05;
   function drawSel(p){ const sel=trendOf[_champSel]; let s="";  // per-segment: played→green/red, upcoming→white (others stay faint gray)
     for(let q=0;q<M-1;q++){ const played=(q+1)<=p, c=played?(aliveAt(q+1)?okCol:noCol):"#ffffff", op=played?"1":".6";
