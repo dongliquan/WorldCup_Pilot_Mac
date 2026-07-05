@@ -651,13 +651,14 @@
   /* title-odds race (below the bracket) reuses the .advt-* race styling; 2 columns (table | chart) */
   #champrace { margin-top: 8px; }
   .advt-deck2 { display: grid; grid-template-columns: minmax(230px, 0.85fr) minmax(0, 1.6fr); gap: 16px; align-items: start; }
-  #champrace .advt-tbl td { height: 26px; box-sizing: border-box; vertical-align: middle; }   /* integer row height → crisp 1px dividers */
+  #champrace .advt-tbl td { height: 33px; box-sizing: border-box; vertical-align: middle; font-size: 13.5px; }   /* taller rows, bigger text; integer height → crisp 1px dividers */
   #champrace .advt-flag.sm { display: block; }
   /* keep the team cell a real table-cell (not flex) so its collapsed bottom border lines up
      with the # and % cells — a flex <td> renders the divider 1px off in WebKit */
   #champrace .advt-tbl td.tnm { display: table-cell; }
-  #champrace .advt-tbl td.tnm .advt-flag.sm { display: inline-block; vertical-align: middle; margin-right: 6px; }
-  #champrace .advt-tbl td.tnm span { vertical-align: middle; }
+  #champrace .advt-tbl td.tnm .advt-flag.sm { display: inline-block; vertical-align: middle; margin-right: 7px; width: 30px; height: 20px; }
+  #champrace .advt-tbl td.tnm span { vertical-align: middle; font-size: 14.5px; font-weight: 700; }
+  #champrace .advt-tbl .tpr { font-size: 13.5px; }
   @media (max-width: 820px){ .advt-deck2 { grid-template-columns: 1fr; } }
   .bracket { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; padding: 10px 4px 40px;
     scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
@@ -1742,7 +1743,8 @@ function renderChampRace(){
       faint+=`<path d="M${X(q).toFixed(1)} ${Y(a).toFixed(1)} L${X(q+1).toFixed(1)} ${Y(b).toFixed(1)}" fill="none" stroke="${(q+1)<el?okCol:noCol}" stroke-opacity=".32" stroke-width="1.4" stroke-linecap="round"/>`;
       if((q+1)>=el) break; }
   });
-  chart.innerHTML = g+faint+`<g id="crHl"></g><line id="crCursor" y1="${mg.t}" y2="${H-mg.b}" stroke="#9aa3ad" stroke-opacity=".6" stroke-dasharray="3 4"/><circle id="crDot" r="5" fill="#e9c46a"/>`;
+  chart.innerHTML = g+`<g id="crFaint">${faint}</g><g id="crHl"></g><line id="crCursor" y1="${mg.t}" y2="${H-mg.b}" stroke="#9aa3ad" stroke-opacity=".6" stroke-dasharray="3 4"/><circle id="crDot" r="5" fill="#e9c46a"/>`;
+  const showField=v=>{ const cf=host.querySelector("#crFaint"); if(cf) cf.style.display=v?"":"none"; };
   function drawSel(p){ const sel=trendOf[_champSel], el=elimIdx(_champSel); let s="";  // selected team bold: green(alive)/red(out), white=not-yet-scrubbed
     for(let q=0;q<M-1;q++){ const a=sel[q], b=sel[q+1]; if(a==null||b==null) break;
       const revealed=(q+1)<=p, c=revealed?((q+1)<el?okCol:noCol):"#ffffff", op=revealed?"1":".6";
@@ -1762,15 +1764,18 @@ function renderChampRace(){
   const elimTime = name => { if(name in _elimT) return _elimT[name]; let t="";
     (state.matches||[]).forEach(m=>{ if(((m.home||{}).name===name||(m.away||{}).name===name) && m.status==="FINISHED" && m.utcDate && m.utcDate>t) t=m.utcDate; });
     return _elimT[name]=t; };
-  function drawFieldFrac(prog){                        // smooth whole-field draw up to a fractional checkpoint `prog`
-    let s="";
+  function drawFieldFrac(prog){                        // whole-field: WHITE leading head, green/red fills in behind (lagged)
+    const LAG=0.5, cprog=Math.max(0, prog-LAG); let s="";
     teams.forEach(t=>{ const arr=t.trend, el=elimIdx(t.name);
       for(let q=0;q<M-1;q++){ if(q>=prog) break; const a=arr[q], b=arr[q+1]; if(a==null||b==null) break;
-        const full=(q+1)<=prog, f=full?1:(prog-q);                       // partial fraction for the in-progress segment
-        const ex=X(q)+(X(q+1)-X(q))*f, ey=Y(a)+(Y(b)-Y(a))*f;
-        const alive=(q+1)<el, c=alive?okCol:noCol;
-        s+=`<path d="M${X(q).toFixed(1)} ${Y(a).toFixed(1)} L${ex.toFixed(1)} ${ey.toFixed(1)}" fill="none" stroke="${c}" stroke-opacity="${alive?'.5':'.9'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
-        if(!full) break; if((q+1)>=el) break; }
+        const xq=X(q), dx=X(q+1)-X(q), yq=Y(a), dy=Y(b)-Y(a);
+        const seg=(u,v,col,op)=>`<path d="M${(xq+dx*u).toFixed(1)} ${(yq+dy*u).toFixed(1)} L${(xq+dx*v).toFixed(1)} ${(yq+dy*v).toFixed(1)}" fill="none" stroke="${col}" stroke-opacity="${op}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
+        const alive=(q+1)<el, cc=alive?okCol:noCol;
+        const cE=Math.min(1, cprog-q);                 // colored (resolved) body within this segment
+        if(cE>0) s+=seg(0, cE, cc, alive?'.55':'.9');
+        const wS=Math.max(0, cprog-q), wE=Math.min(1, prog-q);   // white leading head, not yet dyed
+        if(wE>wS) s+=seg(wS, wE, "#ffffff", ".9");
+        if((q+1)>=el) break; }
     });
     host.querySelector("#crHl").innerHTML=s; }
   function renderStep(p){
@@ -1802,7 +1807,8 @@ function renderChampRace(){
   function playAnim(){
     _champSel=null;                       // replay shows the whole field, not one selected team
     if (_champTimer){ cancelAnimationFrame(_champTimer); _champTimer=null; }
-    if (done<=0){ renderStep(done); return; }
+    showField(false);                     // hide the resolved green/red context so the reveal starts white
+    if (done<=0){ showField(true); renderStep(done); return; }
     const PER=10000;                      // 10s per knockout round — smooth line movement
     const cur=host.querySelector("#crCursor"), prog=host.querySelector("#crProg");
     let start=null, lastCi=-1;
@@ -1814,18 +1820,20 @@ function renderChampRace(){
       drawFieldFrac(t);                                 // line grows smoothly toward the next round
       const xn=X(t); cur.setAttribute("x1",xn); cur.setAttribute("x2",xn);
       prog.style.width=(M<=1?100:(t/(M-1)*100))+"%";
-      if(t<done){ _champTimer=requestAnimationFrame(frame); } else { _champTimer=null; renderStep(done); }
+      if(t<done){ _champTimer=requestAnimationFrame(frame); } else { _champTimer=null; showField(true); renderStep(done); }
     }
     _champTimer=requestAnimationFrame(frame);
   }
   function selectChamp(n){ _champSel=n;
+    if(_champTimer){ cancelAnimationFrame(_champTimer); _champTimer=null; }
+    showField(true);
     host.querySelector("#crSel").innerHTML = `${flagImg(n,'sm')}${n}`;
     renderStep(_champStep==null?M-1:_champStep); }
   tbody.addEventListener("click", e=>{ const row=e.target.closest(".advt-row"); if(row) selectChamp(decodeURIComponent(row.dataset.team)); });
   host.querySelector("#crReplay").addEventListener("click", playAnim);
   const track=host.querySelector(".advt-prog"); let dragging=false;
   const seek=x=>{ const r=track.getBoundingClientRect(); let f=r.width?(x-r.left)/r.width:0; f=Math.max(0,Math.min(1,f));
-    if(_champTimer){cancelAnimationFrame(_champTimer);_champTimer=null;} renderStep(Math.min(done, Math.round(f*(M-1)))); };
+    if(_champTimer){cancelAnimationFrame(_champTimer);_champTimer=null;} showField(true); renderStep(Math.min(done, Math.round(f*(M-1)))); };
   track.addEventListener("pointerdown", e=>{ dragging=true; try{track.setPointerCapture(e.pointerId);}catch(_){} seek(e.clientX); });
   track.addEventListener("pointermove", e=>{ if(dragging) seek(e.clientX); });
   track.addEventListener("pointerup", ()=> dragging=false);
@@ -1835,7 +1843,7 @@ function renderChampRace(){
     if(e.key==="ArrowRight"||e.key==="ArrowUp") np=Math.min(done,_champStep+1);
     else if(e.key==="ArrowLeft"||e.key==="ArrowDown") np=Math.max(0,_champStep-1);
     else if(e.key==="Home") np=0; else if(e.key==="End") np=done; else return;
-    e.preventDefault(); if(_champTimer){cancelAnimationFrame(_champTimer);_champTimer=null;} renderStep(np); });
+    e.preventDefault(); if(_champTimer){cancelAnimationFrame(_champTimer);_champTimer=null;} showField(true); renderStep(np); });
   selectChamp(_champSel);   // render at the current (latest) checkpoint; replay ↻ animates
 }
 
