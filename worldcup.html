@@ -327,6 +327,7 @@
   .acc-mtab th, .acc-mtab td { padding: 7px 9px; border-bottom: 1px solid var(--line); text-align: center; white-space: nowrap; }
   .acc-mtab thead th { font-size: 11px; color: var(--dim); }
   .acc-mtab .acc-mt { text-align: left; font-weight: 600; }
+  .acc-mtab .acc-gtag { display: inline-block; min-width: 15px; text-align: center; font-size: 10px; font-weight: 800; color: var(--gold); margin-right: 6px; }
   .acc-mtab .acc-sc { font-family: var(--mono); font-weight: 800; color: var(--gold); }
   .acc-mtab td.ok { color: #34c759; font-weight: 700; font-family: var(--mono); }
   .acc-mtab td.no { color: var(--mute); font-family: var(--mono); }
@@ -1654,18 +1655,11 @@ function accMatchTable(matches){
       return `<td class="${ex?'exact':ok?'ok':'no'}">${val}${ex?' 🎯':''}</td>`;
     }).join("");
     const sc = pend ? `<span class="muted">—</span>` : m.actual;
-    return `<tr class="${pend?'acc-pend':''}"><td class="acc-mt">${m.home} <span class="muted">v</span> ${m.away}</td><td class="acc-sc">${sc}</td>${cells}</tr>`;
+    const gtag = m.grp ? `<span class="acc-gtag">${m.grp}</span>` : "";
+    return `<tr class="${pend?'acc-pend':''}"><td class="acc-mt">${gtag}${m.home} <span class="muted">v</span> ${m.away}</td><td class="acc-sc">${sc}</td>${cells}</tr>`;
   };
-  // sub-group the round's matches by group (A조, B조, …); fall back to a flat list if no group info
-  const byGrp={}; (matches||[]).forEach(m=>{ const k=m.grp||""; (byGrp[k]=byGrp[k]||[]).push(m); });
-  const keys=Object.keys(byGrp).sort();
-  const hasGroups = keys.some(k=>k);
-  let body;
-  if (hasGroups){
-    body=keys.map(k=>`${k?`<tr class="acc-grp"><td colspan="${ncol}">${tr("groupN",{g:k})}</td></tr>`:""}${byGrp[k].map(rowHtml).join("")}`).join("");
-  } else {
-    body=(matches||[]).map(rowHtml).join("");
-  }
+  // schedule (kickoff) order — the server already returns each round's matches by time
+  const body=(matches||[]).map(rowHtml).join("");
   return `<div class="acc-mtab-wrap"><table class="acc-mtab"><thead>${head}</thead><tbody>${body}</tbody></table></div>`;
 }
 async function gradeAI(btn){
