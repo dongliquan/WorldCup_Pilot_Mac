@@ -1903,11 +1903,12 @@ function renderBracket(){
     </div>
     ${centerH}
   </div>`;
-  const raceBlock = `<div id="champrace" class="advt-wrap"></div>`;   // title-odds race, below the bracket
+  // title-odds race only for the current (in-progress) edition — past World Cups are decided
+  const raceBlock = state.editionCurrent !== false ? `<div id="champrace" class="advt-wrap"></div>` : "";
   main.innerHTML = wideHTML + raceBlock;
   const bel = main.querySelector(".bracket");           // reading scrollWidth forces layout → reliable
   if (bel && bel.scrollWidth > bel.clientWidth + 4) main.innerHTML = splitHTML + raceBlock;
-  renderChampRace();
+  if (raceBlock) renderChampRace();
 }
 
 function teamEl(team, side, extra){
@@ -2688,11 +2689,11 @@ function renderGroups(){
       <div class="gn-t">${tr("advFormat")}</div>
       <div class="gn-sub">${tr("rankGroupTitle")}</div>
       <ol class="gn-rule">${(GROUP_CRIT[LANG]||GROUP_CRIT.en).map(c=>`<li>${c}</li>`).join("")}</ol></div>`
-    + `<div id="advtrend" class="advt-wrap"></div>`
+    + (state.editionCurrent !== false ? `<div id="advtrend" class="advt-wrap"></div>` : "")   // R32 advancement race: current edition only
     + `<div class="groups-note">
       <div class="gn-sub">${tr("rankThirdTitle")}</div>
       <ol class="gn-rule">${(THIRD_CRIT[LANG]||THIRD_CRIT.en).map(c=>`<li>${c}</li>`).join("")}</ol></div>`;
-  renderAdvTrend();
+  if (state.editionCurrent !== false) renderAdvTrend();
 }
 
 /* ---------- advancement trend: day-by-day R32 race + 3rd-place wildcard bingo ---------- */
