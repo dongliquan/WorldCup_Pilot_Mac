@@ -868,6 +868,165 @@ def advancement_trend(N=3000):
     return data
 
 
+_ASSIST_RE = re.compile(r"assisted by (.+?)(?:\.|,| with | with the | following | after )", re.I)
+
+
+def scorer_ranking():
+    """Tournament goal + assist leaderboard, aggregated from finished-match goal events (which are
+    already cached per match). Own goals don't count toward a scorer. Assist = the goal's 2nd
+    participant (or parsed from the commentary text for older cached events). Cached by the
+    finished-results signature → recomputed only when a new match finishes."""
+    sig = _finished_signature()
+    cached, _ = _read_cache("scorers", 10 ** 9)
+    if cached is not None and cached.get("sig") == sig:
+        return cached.get("data")
+    tally = {}   # player name -> {player, team, goals, assists}
+
+    def ent(name, team):
+        e = tally.get(name)
+        if e is None:
+            e = tally[name] = {"player": name, "team": team, "goals": 0, "assists": 0}
+        if team and not e.get("team"):
+            e["team"] = team
+        return e
+
+    for m in get_matches().get("matches", []):
+        if m.get("status") != "FINISHED":
+            continue
+        home = (m.get("home") or {}).get("name")
+        away = (m.get("away") or {}).get("name")
+        det = (get_match_espn(m.get("id")) or {}).get("match") or {}
+        for e in det.get("events", []):
+            typ = (e.get("type") or "")
+            if "oal" not in typ:                       # goals only (not cards)
+                continue
+            text = e.get("text") or ""
+            own = "own" in typ.lower() or "own goal" in text.lower()
+            team = home if e.get("side") == "home" else away if e.get("side") == "away" else None
+            scorer = (e.get("player") or "").strip()
+            if scorer and not own:                     # own goals are not credited to the scorer
+                ent(scorer, team)["goals"] += 1
+            ast = (e.get("assist") or "").strip()
+            if not ast and not own:
+                mt = _ASSIST_RE.search(text)           # fallback for events cached before 'assist'
+                ast = (mt.group(1).strip() if mt else "")
+            if ast:
+                ent(ast, team)["assists"] += 1
+    allrows = list(tally.values())
+    data = {
+        "scorers": sorted([r for r in allrows if r["goals"] > 0],
+                          key=lambda r: (-r["goals"], -r["assists"], r["player"]))[:25],
+        "assists": sorted([r for r in allrows if r["assists"] > 0],
+                          key=lambda r: (-r["assists"], -r["goals"], r["player"]))[:25],
+    }
+    _write_cache("scorers", {"sig": sig, "data": data})
+    return data
+
+
+def championship_trend(N=4000):
+    """Title-odds race through the knockouts. For each checkpoint — the start of the knockouts, then
+    after every completed knockout match in kickoff order — every surviving team's P(win the cup) is
+    estimated by Monte-Carlo: completed matches are fixed to their real winners, the rest of the
+    bracket is simulated from current Elo (pairwise win prob, draws resolve inside the win prob).
+    48-team format only (needs the 16-match R32). Cached by the finished-results signature."""
+    sig = _finished_signature()
+    cached, _ = _read_cache("champtrend", 10 ** 9)
+    if cached is not None and cached.get("sig") == sig:
+        return cached.get("data")
+    ms = get_matches().get("matches", [])
+    bystage = lambda s: sorted([m for m in ms if m.get("stage") == s], key=lambda m: (m.get("id") or 0))
+    r32, r16, qf, sf = bystage("LAST_32"), bystage("LAST_16"), bystage("QUARTER_FINALS"), bystage("SEMI_FINALS")
+    finl = bystage("FINAL")
+    if len(r32) != 16 or len(r16) != 8 or len(qf) != 4 or len(sf) != 2 or not finl:
+        return {"labels": [], "teams": []}
+    finl = finl[0]
+    # fixed FIFA 2026 wiring (same as the UI's R16_OF_R32): R32 game i (id order) → R16 #; R16 → QF; QF → SF
+    R16_OF_R32 = [1, 3, 1, 2, 3, 4, 2, 6, 6, 4, 5, 5, 8, 7, 7, 8]
+    QF_OF_R16 = {1: 1, 2: 1, 5: 2, 6: 2, 3: 3, 4: 3, 7: 4, 8: 4}
+    SF_OF_QF = {1: 1, 2: 1, 3: 2, 4: 2}
+    year = str(CONFIG.get("season"))
+    elos = _team_elos(year)
+    Rof = lambda nm: elos.get(_norm(nm), _init_elo(rank_for(nm, year)))
+
+    def winner_of(m):
+        if m.get("status") != "FINISHED":
+            return None
+        sc = m.get("score") or {}
+        pens = sc.get("pens")
+        h, a = (m.get("home") or {}).get("name"), (m.get("away") or {}).get("name")
+        if pens and pens.get("home") is not None and pens.get("home") != pens.get("away"):
+            return h if pens["home"] > pens["away"] else a
+        hs, as_ = sc.get("home"), sc.get("away")
+        if hs is None or as_ is None:
+            return None
+        return h if hs > as_ else a if as_ > hs else None
+
+    # meta (crest/tla) + all 32 knockout entrants
+    meta = {}
+    for m in r32:
+        for t in ((m.get("home") or {}), (m.get("away") or {})):
+            if t.get("name"):
+                meta.setdefault(t["name"], {"name": t["name"], "tla": t.get("tla"), "crest": t.get("crest")})
+
+    def sim(fixed):
+        def decide(mid, a, b):
+            w = fixed.get(mid)
+            if w is not None:
+                return w
+            if not a or not b:
+                return a or b
+            pa = 1 / (1 + 10 ** ((Rof(b) - Rof(a)) / 400))
+            return a if random.random() < pa else b
+        r32w = [decide(m.get("id"), (m.get("home") or {}).get("name"), (m.get("away") or {}).get("name")) for m in r32]
+        r16w = {}
+        for k in range(1, 9):
+            fe = [r32w[i] for i in range(16) if R16_OF_R32[i] == k]
+            r16w[k] = decide(r16[k - 1].get("id"), fe[0] if fe else None, fe[1] if len(fe) > 1 else None)
+        qfw = {}
+        for j in range(1, 5):
+            fe = [r16w[k] for k in range(1, 9) if QF_OF_R16[k] == j]
+            qfw[j] = decide(qf[j - 1].get("id"), fe[0], fe[1])
+        sfw = {}
+        for j in range(1, 3):
+            fe = [qfw[k] for k in range(1, 5) if SF_OF_QF[k] == j]
+            sfw[j] = decide(sf[j - 1].get("id"), fe[0], fe[1])
+        return decide(finl.get("id"), sfw[1], sfw[2])
+
+    # x-axis = the FULL knockout path (GROUPS → R32 → R16 → QF → SF → FINAL). A round's point is the
+    # title odds with that round's finished results fixed (cumulative); rounds not yet started are
+    # null (no point) so the line only runs to the current frontier. GROUPS = pre-knockout baseline.
+    ROUND_SEQ = ["GROUPS", "LAST_32", "LAST_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL"]
+    byround = {"LAST_32": r32, "LAST_16": r16, "QUARTER_FINALS": qf, "SEMI_FINALS": sf, "FINAL": [finl]}
+    computed = {"GROUPS": {}}          # round → cumulative {matchId: winner}
+    fixed = {}
+    for stage in ROUND_SEQ[1:]:
+        fin_r = [m for m in byround[stage] if winner_of(m)]
+        if not fin_r:
+            break                      # a later round can't have started before this one
+        for m in fin_r:
+            fixed[m.get("id")] = winner_of(m)
+        computed[stage] = dict(fixed)
+    trend = {nm: [] for nm in meta}
+    for stage in ROUND_SEQ:
+        if stage in computed:
+            cnt = {nm: 0 for nm in meta}
+            for _ in range(N):
+                champ = sim(computed[stage])
+                if champ in cnt:
+                    cnt[champ] += 1
+            for nm in meta:
+                trend[nm].append(round(100.0 * cnt[nm] / N, 1))
+        else:
+            for nm in meta:
+                trend[nm].append(None)     # round not played yet → no data point
+    done = max(i for i, s in enumerate(ROUND_SEQ) if s in computed)
+    teams = [{**meta[nm], "trend": trend[nm]} for nm in meta]
+    teams.sort(key=lambda t: -(t["trend"][done] if t["trend"][done] is not None else -1))
+    data = {"labels": ROUND_SEQ, "teams": teams, "n": N, "done": done}
+    _write_cache("champtrend", {"sig": sig, "data": data})
+    return data
+
+
 def get_team(team_id):
     raw, source = fd_get(f"/teams/{team_id}", f"team-{team_id}", ttl=10 ** 9)  # squad/coach static
     if raw is None and CONFIG.get("use_mock_when_unavailable", True):
@@ -975,10 +1134,14 @@ def espn_events(espn_id, home_team_id, away_team_id):
         tid = str((k.get("team", {}) or {}).get("id") or "")
         side = "home" if tid == str(home_team_id) else ("away" if tid == str(away_team_id) else None)
         players = [a.get("athlete", {}).get("displayName") for a in k.get("participants", [])]
+        named = [p for p in players if p]
+        is_goal = "goal" in low
         out.append({
             "minute": (k.get("clock", {}) or {}).get("displayValue", ""),
             "type": ttext, "side": side,
-            "player": next((p for p in players if p), ""),
+            "player": named[0] if named else "",
+            # 2nd participant on a goal = the assister (absent on penalties / solo goals / own goals)
+            "assist": (named[1] if (is_goal and len(named) > 1) else ""),
             "text": k.get("text", ""),
         })
     venue = (data.get("gameInfo", {}) or {}).get("venue", {})
@@ -2528,6 +2691,14 @@ def _accuracy_warm_worker():
             advancement_trend()   # warm the day-by-day advancement trend (heavy; cached by signature)
         except Exception as e:
             print(f"[warn] advtrend warm: {e}")
+        try:
+            scorer_ranking()      # warm the goal/assist leaderboard (fetches any uncached finals once)
+        except Exception as e:
+            print(f"[warn] scorers warm: {e}")
+        try:
+            championship_trend()  # warm the title-odds race (Monte-Carlo; cached by signature)
+        except Exception as e:
+            print(f"[warn] champrace warm: {e}")
         time.sleep(240)
 
 
@@ -3245,6 +3416,18 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as e:
                 print(f"[warn] advtrend: {e}")
                 return self._json(200, {"teams": [], "boards": {}, "order": [], "labels": []})
+        if path == "/api/scorers":
+            try:
+                return self._json(200, scorer_ranking())
+            except Exception as e:
+                print(f"[warn] scorers: {e}")
+                return self._json(200, {"scorers": [], "assists": []})
+        if path == "/api/champrace":
+            try:
+                return self._json(200, championship_trend())
+            except Exception as e:
+                print(f"[warn] champrace: {e}")
+                return self._json(200, {"labels": [], "teams": []})
         if path == "/api/match":
             q = parse_qs(urlparse(self.path).query)
             mid = (q.get("id") or [""])[0]
