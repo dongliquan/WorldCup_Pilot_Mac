@@ -653,6 +653,11 @@
   .advt-deck2 { display: grid; grid-template-columns: minmax(230px, 0.85fr) minmax(0, 1.6fr); gap: 16px; align-items: start; }
   #champrace .advt-tbl td { height: 26px; box-sizing: border-box; vertical-align: middle; }   /* integer row height → crisp 1px dividers */
   #champrace .advt-flag.sm { display: block; }
+  /* keep the team cell a real table-cell (not flex) so its collapsed bottom border lines up
+     with the # and % cells — a flex <td> renders the divider 1px off in WebKit */
+  #champrace .advt-tbl td.tnm { display: table-cell; }
+  #champrace .advt-tbl td.tnm .advt-flag.sm { display: inline-block; vertical-align: middle; margin-right: 6px; }
+  #champrace .advt-tbl td.tnm span { vertical-align: middle; }
   @media (max-width: 820px){ .advt-deck2 { grid-template-columns: 1fr; } }
   .bracket { display: flex; gap: 12px; align-items: stretch; overflow-x: auto; padding: 10px 4px 40px;
     scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
@@ -1737,9 +1742,14 @@ function renderChampRace(){
         if(b===0) break; }
     });
     host.querySelector("#crHl").innerHTML=s; }
+  const _elimT={};                                    // each team's last finished-match time (= elimination for the knocked-out)
+  const elimTime = name => { if(name in _elimT) return _elimT[name]; let t="";
+    (state.matches||[]).forEach(m=>{ if(((m.home||{}).name===name||(m.away||{}).name===name) && m.status==="FINISHED" && m.utcDate && m.utcDate>t) t=m.utcDate; });
+    return _elimT[name]=t; };
   function renderStep(p){
     _champStep=p; const allMode=!_champSel;
-    const ranked=[...teams].sort((a,b)=>(b.trend[p]??0)-(a.trend[p]??0));
+    const ranked=[...teams].sort((a,b)=>{ const av=a.trend[p]??0, bv=b.trend[p]??0;   // by title odds; ties (0% out) → most recently played first
+      return Math.abs(av-bv)>1e-9 ? bv-av : (elimTime(b.name)||"").localeCompare(elimTime(a.name)||""); });
     tbody.innerHTML = ranked.map((t,i)=>{ const pv=t.trend[p]??0;
       return `<tr class="advt-row${t.name===_champSel?' sel':''}${pv<=0.05?' out':''}" data-team="${encodeURIComponent(t.name)}" title="${t.name}">
         <td class="pos">${i+1}</td><td class="tnm">${flagImg(t.name,'sm')}<span>${t.name}</span></td>
