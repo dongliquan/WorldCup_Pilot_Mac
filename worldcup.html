@@ -1725,25 +1725,37 @@ function renderChampRace(){
   let g="";
   for(let p=0;p<=maxP;p+=gstep){ g+=`<line x1="${mg.l}" y1="${Y(p)}" x2="${W-mg.r}" y2="${Y(p)}" stroke="#7f8893" stroke-opacity=".18"/><text x="${mg.l-6}" y="${Y(p)+4}" fill="#8a93a0" font-size="11" text-anchor="end">${p}</text>`; }
   for(let p=0;p<M;p++){ const fut=p>done; g+=`<text x="${X(p)}" y="${H-12}" fill="${fut?'#5b636d':'#8a93a0'}" font-size="11" text-anchor="middle">${lblShort(D.labels[p])}</text>`; }
-  const okCol="#34c759", noCol="#ef4444";                       // green = still alive, red = eliminated
-  let faint=""; teams.forEach(t=>{ const arr=t.trend;           // context lines for EVERY team, coloured green/red per segment
+  const okCol="#34c759", noCol="#ef4444";                       // green = alive (still in), red = eliminated
+  // eliminated = actually knocked out (lost a knockout match), NOT just 0% odds — a weak survivor
+  // can round to 0.0%. Compute each team's exit round from the real match results.
+  const lblIdx={}; D.labels.forEach((l,i)=> lblIdx[l]=i);
+  const _elimI={};
+  const elimIdx = name => { if(name in _elimI) return _elimI[name]; let idx=Infinity;
+    (state.matches||[]).forEach(m=>{ const s=lblIdx[m.stage]; if(!s) return;   // knockout rounds only (index ≥ 1)
+      if(m.status!=="FINISHED") return; const sc=m.score||{}; if(sc.home==null||sc.away==null) return;
+      const hn=(m.home||{}).name, an=(m.away||{}).name; if(hn!==name&&an!==name) return;
+      const pk=sc.pens, win=(sc.home===sc.away&&pk&&pk.home!=null)?(pk.home>pk.away?'home':'away'):(sc.home>sc.away?'home':'away');
+      if((win==='home'?an:hn)===name) idx=Math.min(idx,s); });
+    return _elimI[name]=idx; };
+  let faint=""; teams.forEach(t=>{ const arr=t.trend, el=elimIdx(t.name);   // context lines for EVERY team: green (alive) → red (out)
     for(let q=0;q<M-1;q++){ const a=arr[q], b=arr[q+1]; if(a==null||b==null) break;
-      faint+=`<path d="M${X(q).toFixed(1)} ${Y(a).toFixed(1)} L${X(q+1).toFixed(1)} ${Y(b).toFixed(1)}" fill="none" stroke="${(b>0.05)?okCol:noCol}" stroke-opacity=".32" stroke-width="1.4" stroke-linecap="round"/>`;
-      if(b===0) break; }
+      faint+=`<path d="M${X(q).toFixed(1)} ${Y(a).toFixed(1)} L${X(q+1).toFixed(1)} ${Y(b).toFixed(1)}" fill="none" stroke="${(q+1)<el?okCol:noCol}" stroke-opacity=".32" stroke-width="1.4" stroke-linecap="round"/>`;
+      if((q+1)>=el) break; }
   });
   chart.innerHTML = g+faint+`<g id="crHl"></g><line id="crCursor" y1="${mg.t}" y2="${H-mg.b}" stroke="#9aa3ad" stroke-opacity=".6" stroke-dasharray="3 4"/><circle id="crDot" r="5" fill="#e9c46a"/>`;
-  const aliveAt=q=>(trendOf[_champSel][q]??0)>0.05;
-  function drawSel(p){ const sel=trendOf[_champSel]; let s="";  // per-segment: played→green/red, upcoming→white (others stay faint gray)
-    for(let q=0;q<M-1;q++){ const played=(q+1)<=p, c=played?(aliveAt(q+1)?okCol:noCol):"#ffffff", op=played?"1":".6";
-      s+=`<path d="M${X(q).toFixed(1)} ${Y(sel[q]).toFixed(1)} L${X(q+1).toFixed(1)} ${Y(sel[q+1]).toFixed(1)}" fill="none" stroke="${c}" stroke-opacity="${op}" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>`; }
+  function drawSel(p){ const sel=trendOf[_champSel], el=elimIdx(_champSel); let s="";  // selected team bold: green(alive)/red(out), white=not-yet-scrubbed
+    for(let q=0;q<M-1;q++){ const a=sel[q], b=sel[q+1]; if(a==null||b==null) break;
+      const revealed=(q+1)<=p, c=revealed?((q+1)<el?okCol:noCol):"#ffffff", op=revealed?"1":".6";
+      s+=`<path d="M${X(q).toFixed(1)} ${Y(a).toFixed(1)} L${X(q+1).toFixed(1)} ${Y(b).toFixed(1)}" fill="none" stroke="${c}" stroke-opacity="${op}" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"/>`;
+      if((q+1)>=el) break; }
     host.querySelector("#crHl").innerHTML=s; }
   const tbody=host.querySelector("#crMeta");
-  function drawAll(p){ let s="";                       // whole-field mode: every team, segment green (alive) / red (0% = eliminated)
-    teams.forEach(t=>{ const arr=t.trend;
+  function drawAll(p){ let s="";                       // whole-field replay: every team green (alive) → red (eliminated)
+    teams.forEach(t=>{ const arr=t.trend, el=elimIdx(t.name);
       for(let q=0;q<p;q++){ const a=arr[q], b=arr[q+1]; if(a==null||b==null) break;
-        const alive=(b>0.05), c=alive?okCol:noCol;
+        const alive=(q+1)<el, c=alive?okCol:noCol;
         s+=`<path d="M${X(q).toFixed(1)} ${Y(a).toFixed(1)} L${X(q+1).toFixed(1)} ${Y(b).toFixed(1)}" fill="none" stroke="${c}" stroke-opacity="${alive?'.5':'.9'}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>`;
-        if(b===0) break; }
+        if((q+1)>=el) break; }
     });
     host.querySelector("#crHl").innerHTML=s; }
   const _elimT={};                                    // each team's last finished-match time (= elimination for the knocked-out)
@@ -1768,7 +1780,7 @@ function renderChampRace(){
     } else {
       const sel=trendOf[_champSel];
       drawSel(p); dot.setAttribute("opacity","1");
-      dot.setAttribute("cx",X(p)); dot.setAttribute("cy",Y(sel[p])); dot.setAttribute("fill", aliveAt(p)?okCol:noCol);
+      dot.setAttribute("cx",X(p)); dot.setAttribute("cy",Y(sel[p])); dot.setAttribute("fill", (p<elimIdx(_champSel))?okCol:noCol);
       host.querySelector("#crBig").innerHTML = (sel[p]??0).toFixed(1)+"<small>%</small>";
       const rank = ranked.findIndex(t=>t.name===_champSel)+1;
       host.querySelector("#crStat").textContent = `#${rank}/${teams.length}`;
