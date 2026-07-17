@@ -2437,7 +2437,9 @@ def _model_pick_py(pr):
     def trate(s):
         return (W["elo"] * (((s.get("elo") or 1500) - 1500) / 8) - W["inj"] * (s.get("inj") or 0) * 6
                 - W["susp"] * (s.get("susp") or 0) * 12 + (s.get("cal") or 0) * 15)
-    dr = trate(h) - trate(a) + W["home"] * K["homeBase"] + (K["host"] if h.get("host") else 0)
+    # World Cup venues are neutral except for the host nation's own games — a "home" advantage
+    # bonus only makes sense there, not for whichever side the fixture happens to list first.
+    dr = trate(h) - trate(a) + (W["home"] * K["homeBase"] + K["host"] if h.get("host") else 0)
     if h.get("mid") is not None and a.get("mid") is not None:
         dr += 10 * max(-3, min(3, h["mid"] - a["mid"]))
     if h.get("rest") is not None and a.get("rest") is not None:

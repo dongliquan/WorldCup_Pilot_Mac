@@ -1,1 +1,1 @@
-{"available": true, "winner": "draw", "scoreHome": 1, "scoreAway": 1, "confidence": 50, "reason": "Both teams have identical FIFA rankings and strengths.", "provider": "groq", "home": "Semifinal 1 Loser", "away": "Semifinal 2 Loser"}
+{"available": true, "winner": "home", "scoreHome": 2, "scoreAway": 1, "confidence": 68, "reason": "France's strong attack led by Kylian Mbapp\u00e9 gives them a slight edge over England", "provider": "groq", "home": "France", "away": "England"}

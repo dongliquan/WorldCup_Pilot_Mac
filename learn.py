@@ -68,7 +68,9 @@ def edition_samples(year):
 
 def lambdas(s, P):
     """Replicate computePrediction's scoreline lambdas with tunable params P."""
-    dr = W["elo"] * ((s["eh"] - 1500) / 8 - (s["ea"] - 1500) / 8) + W["home"] * HOMEBASE + (60 if s["host"] else 0)
+    # World Cup venues are neutral except for the host nation's own games — home-field bonus
+    # only applies there, not to whichever side the fixture happens to list first.
+    dr = W["elo"] * ((s["eh"] - 1500) / 8 - (s["ea"] - 1500) / 8) + (W["home"] * HOMEBASE + 60 if s["host"] else 0)
     tilt = max(-P["cap"], min(P["cap"], dr / P["tscale"]))
     fh, fa = s["fh"], s["fa"]
     atkh = fh["gf"] / fh["p"] if fh["p"] > 0 else P["avg"]

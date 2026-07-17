@@ -454,7 +454,7 @@
   .cp-diff { font-size: 9px; font-weight: 700; color: #e9a23b; border: 1px solid #e9a23b55;
     border-radius: 6px; padding: 1px 5px; }
   .cp-main { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
-  .cp-t { color: var(--mute); font-size: 12px; word-break: break-word; }   /* losing / non-picked side */
+  .cp-t { color: var(--mute); font-size: 12px; font-weight: 400; word-break: break-word; }   /* losing / non-picked side */
   .cp-t.w { color: var(--text); font-size: 13px; font-weight: 800; }   /* predicted winner — darker & bold */
   .cp-score { font-family: var(--mono); color: var(--gold); font-weight: 400; }
   .cp-conf { font-family: var(--mono); color: var(--dim); cursor: help; }
@@ -2308,7 +2308,9 @@ function teamRating(s, w){
 }
 function computePrediction(p, w){
   const h=p.home, a=p.away;
-  let dr = teamRating(h,w) - teamRating(a,w) + w.home*PRED_K.homeBase + (h.host?PRED_K.host:0);
+  // World Cup venues are neutral except for the host nation's own games — a "home" advantage
+  // bonus only makes sense there, not for whichever side the fixture happens to list first.
+  let dr = teamRating(h,w) - teamRating(a,w) + (h.host ? w.home*PRED_K.homeBase + PRED_K.host : 0);
   // minor factors: rest days (more rest = edge) and travel (more travel = fatigue)
   if (h.mid!=null && a.mid!=null) dr += 10*Math.max(-3,Math.min(3, h.mid - a.mid));   // midfield control edge
   if (h.rest!=null && a.rest!=null) dr += 4*Math.max(-4,Math.min(4, h.rest - a.rest));
@@ -2348,16 +2350,27 @@ const AI_META = {
   groq:   { label:"Groq",    icon:"⚡", keyName:"groq_api_key" },
   openai: { label:"ChatGPT", icon:"💬", keyName:"openai_api_key" },
 };
-const aiCache = {};   // `${provider}-${matchId}` -> result
+const aiCache = {};   // `${provider}-${matchId}` -> result (in-memory, this session)
+const AI_LS = "wc_aipick_v1";                                  // persistent last-known-good picks (survive reloads)
+function aiLoadLS(){ try { return JSON.parse(localStorage.getItem(AI_LS)||"{}"); } catch(e){ return {}; } }
+function aiCacheGet(ck){ return aiCache[ck] || aiLoadLS()[ck] || null; }
+function aiCachePut(ck, res){ aiCache[ck]=res;                  // remember a good pick in memory + on disk
+  try { const o=aiLoadLS(); o[ck]=res; localStorage.setItem(AI_LS, JSON.stringify(o)); } catch(e){} }
 async function loadAiPick(id, provider){
   const slot = document.getElementById(`ai-${provider}-${id}`);
   if (!slot) return;
   const m = AI_META[provider];
-  slot.innerHTML = `<div class="cp-head">${m.icon} ${m.label}</div><div class="cp-load"><img class="ld-logo" src="${edLogo()}"> ${tr("predicting")}</div>`;
   const ck = provider+"-"+id;
-  let res = aiCache[ck];
-  if (!res){ res = await fetch(`/api/aipick?id=${id}&p=${provider}`).then(r=>r.json()).catch(()=>null);
-             if (res && res.available) aiCache[ck]=res; }   // cache successes only → failures retry next open
+  const cached = aiCacheGet(ck);                                // last-known-good pick, if any
+  // show the cached pick right away (stale-while-revalidate); only spin when we've never had one
+  slot.innerHTML = cached ? aiPickHtmlOf(id, provider, cached)
+    : `<div class="cp-head">${m.icon} ${m.label}</div><div class="cp-load"><img class="ld-logo" src="${edLogo()}"> ${tr("predicting")}</div>`;
+  let res = aiCache[ck];                                        // already fetched this session → done
+  if (!res){
+    const fetched = await fetch(`/api/aipick?id=${id}&p=${provider}`).then(r=>r.json()).catch(()=>null);
+    if (fetched && fetched.available){ res = fetched; aiCachePut(ck, res); }   // new success → cache it
+    else res = cached;                                          // couldn't get a new result → always show the cache
+  }
   if (document.getElementById(`ai-${provider}-${id}`)) slot.innerHTML = aiPickHtmlOf(id, provider, res);
 }
 function aiPickHtmlOf(id, provider, res){
@@ -2407,7 +2420,8 @@ function predHtmlOf(p){
   const hN=p.home.name, aN=p.away.name, c=computePrediction(p, PRED_W);
   const seg = (cls,v) => `<span class="pb ${cls}" style="width:${v}%"></span>`;
   const slider = (label,k,step) => `<label class="pw"><span>${label}</span><input type="range" min="0" max="10" step="${step||1}" value="${PRED_W[k]}" oninput="setPredW('${k}',this.value)"><b class="pw-v">${PRED_W[k]}</b></label>`;
-  return `<div class="pred-head"><span>🔮 ${tr("appPredict")}</span><span class="pred-score">${tr("predScore")} <b>${c.scoreH} : ${c.scoreA}</b></span></div>
+  const psHw=c.scoreH>c.scoreA?" w":"", psAw=c.scoreA>c.scoreH?" w":"";   // bold only the winning side (same as the Groq/GPT cards)
+  return `<div class="pred-head"><span>🔮 ${tr("appPredict")}</span><span class="pred-score">${tr("predScore")} <span class="cp-t${psHw}">${hN}</span> <span class="cp-score">${c.scoreH} : ${c.scoreA}</span> <span class="cp-t${psAw}">${aN}</span></span></div>
     <div class="pred-bar slim">${seg("h",c.home)}${seg("d",c.draw)}${seg("a",c.away)}</div>
     <div class="pred-row"><span class="lh">${hN} <b>${c.home}%</b></span><span class="ld">${tr("draw")} <b>${c.draw}%</b></span><span class="la">${aN} <b>${c.away}%</b></span></div>
     <div class="pred-factors">${predFactors(hN,p.home)}${predFactors(aN,p.away)}</div>
@@ -2416,7 +2430,7 @@ function predHtmlOf(p){
 }
 function rerenderPredictions(){
   for (const id in predCache){ const el=document.getElementById("pred-"+id); if (el) el.innerHTML = predHtmlOf(predCache[id]);
-    ["groq","openai"].forEach(pv=>{ const s=document.getElementById(`ai-${pv}-${id}`); const r=aiCache[pv+"-"+id];
+    ["groq","openai"].forEach(pv=>{ const s=document.getElementById(`ai-${pv}-${id}`); const r=aiCacheGet(pv+"-"+id);
       if (s && r) s.innerHTML = aiPickHtmlOf(id, pv, r); }); }
 }
 // load Refresh-tuned Elo x Score params and apply to the live model
